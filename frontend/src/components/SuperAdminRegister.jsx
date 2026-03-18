@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
 const SuperAdminRegister = () => {
@@ -7,6 +7,22 @@ const SuperAdminRegister = () => {
   const [password, setPassword] = useState('');
   const [secretKey, setSecretKey] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.role === 'Main Admin' || user.role === 'Super Admin') {
+          navigate('/super-admin');
+        } else if (user.role === 'Teacher Admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      } catch (e) { }
+    }
+  }, [navigate]);
 
   const handleRegister = async (e) => {
     e.preventDefault();

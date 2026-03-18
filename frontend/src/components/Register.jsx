@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
 const Register = () => {
@@ -7,6 +7,22 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.role === 'Main Admin' || user.role === 'Super Admin') {
+          navigate('/super-admin');
+        } else if (user.role === 'Teacher Admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      } catch (e) { }
+    }
+  }, [navigate]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -84,7 +100,7 @@ const Register = () => {
         </form>
 
         <div className="divider">or continue with</div>
-        
+
         <div className="social-buttons">
           <button className="btn-social">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.283 10.356h-8.327v3.451h4.792c-.446 2.193-2.313 3.453-4.792 3.453a5.27 5.27 0 0 1-5.279-5.28 5.27 5.27 0 0 1 5.279-5.279c1.259 0 2.397.447 3.29 1.178l2.6-2.599c-1.584-1.381-3.615-2.233-5.89-2.233a8.908 8.908 0 0 0-8.934 8.934 8.907 8.907 0 0 0 8.934 8.934c4.467 0 8.529-3.249 8.529-8.934 0-.528-.081-1.097-.202-1.625z"></path></svg> Google

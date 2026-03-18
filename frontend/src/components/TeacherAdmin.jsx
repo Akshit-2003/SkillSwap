@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 // Reusing PageContainer style for consistency
 const PageContainer = ({ title, children }) => (
-  <div className="page-content" style={{ textAlign: 'left', animation: 'fadeInUp 0.5s ease-out', maxWidth: '1200px', margin: '0 auto' }}>
+  <div className="page-content admin-page-container teacher-admin-page" style={{ textAlign: 'left', animation: 'fadeInUp 0.5s ease-out', maxWidth: '1200px', margin: '0 auto' }}>
     <h1 style={{ fontSize: '2.5rem', marginBottom: '2rem', background: 'linear-gradient(to right, #fff, #aaa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', display: 'inline-block' }}>{title}</h1>
     {children}
   </div>
@@ -59,7 +59,7 @@ const TeacherAdmin = () => {
         </div>
       </div>
 
-      <div className="dashboard-grid" style={{ marginTop: '2rem', gridTemplateColumns: '1fr' }}>
+      <div className="dashboard-grid teacher-admin-grid" style={{ marginTop: '2rem', gridTemplateColumns: '1fr' }}>
         {/* Pending Requests Section */}
         <div id="requests" className="skill-card">
           <h3>Pending Skill Verifications</h3>
@@ -68,8 +68,8 @@ const TeacherAdmin = () => {
           ) : (
             <div className="session-list">
               {pendingSkills.map(request => (
-                <div key={request.id} className="session-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div key={request.id} className="session-item admin-request-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div className="admin-request-meta" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div className="avatar" style={{ background: '#646cff' }}>{request.user.charAt(0)}</div>
                     <div>
                       <strong style={{ color: '#fff', fontSize: '1rem' }}>{request.user}</strong>
@@ -79,7 +79,7 @@ const TeacherAdmin = () => {
                       <div style={{ fontSize: '0.75rem', color: '#666' }}>Submitted: {request.date}</div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div className="admin-request-actions" style={{ display: 'flex', gap: '10px' }}>
                     <button className="btn-outline" onClick={() => window.open('#', '_blank')} style={{ fontSize: '0.8rem' }}>View Proof</button>
                     <button className="btn-primary" onClick={() => handleApprove(request.id)} style={{ fontSize: '0.8rem', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none' }}>Approve</button>
                     <button className="btn-danger" onClick={() => handleReject(request.id)} style={{ fontSize: '0.8rem' }}>Reject</button>
@@ -93,7 +93,7 @@ const TeacherAdmin = () => {
         {/* Top Performing Teachers Section */}
         <div id="instructors" className="skill-card" style={{ marginTop: '2rem' }}>
           <h3>Top Performing Instructors</h3>
-          <div className="table-container" style={{ overflowX: 'auto' }}>
+          <div className="table-container responsive-table" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', color: '#e0e0e0', minWidth: '600px' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>

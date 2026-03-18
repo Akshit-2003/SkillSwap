@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import Home from './components/Home';
 import Login from './components/Login';
@@ -21,6 +21,8 @@ function Navbar() {
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [credits, setCredits] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const notificationRef = useRef(null);
 
   useEffect(() => {
     const updateCredits = () => {
@@ -35,6 +37,22 @@ function Navbar() {
     return () => window.removeEventListener('user_updated', updateCredits);
   }, [location]);
 
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setShowNotifications(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handleOutsideClick, true);
+    return () => document.removeEventListener('pointerdown', handleOutsideClick, true);
+  }, []);
+
   const isHome = location.pathname === '/';
 
   // Agar path login ya register hai to navbar mat dikhao
@@ -46,12 +64,23 @@ function Navbar() {
   if (location.pathname.startsWith('/dashboard')) {
     return (
       <nav>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4rem' }}>
+        <button
+          type="button"
+          className="nav-toggle"
+          onClick={() => setIsMobileMenuOpen((open) => !open)}
+          aria-label="Toggle navigation menu"
+          aria-expanded={isMobileMenuOpen}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div className="nav-group nav-group-primary">
           <Link to="/dashboard" className="logo" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <img src="/vite.svg" alt="SkillSwap Logo" width="30" height="30" />
             SkillSwap
           </Link>
-          <div className="nav-links">
+          <div className={`nav-links ${isMobileMenuOpen ? 'nav-links-open' : ''}`}>
             <Link to="/dashboard" className="nav-link">Overview</Link>
             <Link to="/dashboard/find-skills" className="nav-link">Find Skills</Link>
             <Link to="/dashboard/my-skills" className="nav-link">My Skills</Link>
@@ -59,12 +88,18 @@ function Navbar() {
             <Link to="/dashboard/profile" className="nav-link">Profile</Link>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div className={`nav-group nav-group-secondary ${isMobileMenuOpen ? 'nav-group-open' : ''}`}>
           <div style={{ background: 'rgba(100, 108, 255, 0.15)', padding: '6px 14px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(100, 108, 255, 0.3)' }}>
             <span style={{ fontSize: '1.1rem' }}>⚡</span>
             <span style={{ fontWeight: '600', color: '#fff', fontSize: '0.95rem' }}>{credits} Credits</span>
           </div>
-          <div className="notification-wrapper" onClick={() => setShowNotifications(!showNotifications)}>
+          <div
+            ref={notificationRef}
+            className="notification-wrapper"
+            onClick={(event) => {
+              setShowNotifications((open) => !open);
+            }}
+          >
             <div className="notification-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
             </div>
@@ -107,36 +142,60 @@ function Navbar() {
   if (location.pathname.startsWith('/admin')) {
     return (
       <nav>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4rem' }}>
+        <button
+          type="button"
+          className="nav-toggle"
+          onClick={() => setIsMobileMenuOpen((open) => !open)}
+          aria-label="Toggle navigation menu"
+          aria-expanded={isMobileMenuOpen}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div className="nav-group nav-group-primary">
           <div className="logo" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.5rem', cursor: 'default' }}>
             <span style={{ fontSize: '1.8rem' }}>🎓</span>
             Teacher Portal
           </div>
-          <div className="nav-links">
+          <div className={`nav-links ${isMobileMenuOpen ? 'nav-links-open' : ''}`}>
             <Link to="/admin/overview" className="nav-link">Overview</Link>
             <Link to="/admin/requests" className="nav-link">Requests</Link>
             <Link to="/admin/instructors" className="nav-link">Instructors</Link>
           </div>
         </div>
-        <button
-          onClick={() => { localStorage.removeItem('user'); navigate('/admin/login'); }}
-          className="btn-outline"
-          style={{ padding: '0.5rem 1.2rem', fontSize: '0.9rem', borderColor: '#ff4d4d', color: '#ff4d4d' }}
-        >
-          Logout
-        </button>
+        <div className={`nav-group nav-group-secondary ${isMobileMenuOpen ? 'nav-group-open' : ''}`}>
+          <button
+            onClick={() => { localStorage.removeItem('user'); navigate('/admin/login'); }}
+            className="btn-outline"
+            style={{ padding: '0.5rem 1.2rem', fontSize: '0.9rem', borderColor: '#ff4d4d', color: '#ff4d4d' }}
+          >
+            Logout
+          </button>
+        </div>
       </nav>
     );
   }
 
   return (
     <nav>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '9rem' }}>
+      <button
+        type="button"
+        className="nav-toggle"
+        onClick={() => setIsMobileMenuOpen((open) => !open)}
+        aria-label="Toggle navigation menu"
+        aria-expanded={isMobileMenuOpen}
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div className="nav-group nav-group-primary nav-group-home">
         <div className="logo" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img src="/vite.svg" alt="SkillSwap Logo" width="30" height="30" />
           Skillswap
         </div>
-        <div className="nav-links">
+        <div className={`nav-links ${isMobileMenuOpen ? 'nav-links-open' : ''}`}>
           <Link to="/" className={`nav-link ${isHome ? 'active' : ''}`}>Home</Link>
 
           <div className="nav-item">
@@ -175,9 +234,11 @@ function Navbar() {
           </div>
         </div>
       </div>
-      <Link to="/register" className="btn-primary" style={{ textDecoration: 'none', padding: '0.6rem 1.5rem', borderRadius: '30px', fontSize: '0.95rem', fontWeight: '600' }}>
-        Get Started
-      </Link>
+      <div className={`nav-group nav-group-secondary ${isMobileMenuOpen ? 'nav-group-open' : ''}`}>
+        <Link to="/register" className="btn-primary" style={{ textDecoration: 'none', padding: '0.6rem 1.5rem', borderRadius: '30px', fontSize: '0.95rem', fontWeight: '600' }}>
+          Get Started
+        </Link>
+      </div>
     </nav>
   );
 }

@@ -1,10 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.role === 'Main Admin' || user.role === 'Super Admin') {
+          navigate('/super-admin');
+        } else if (user.role === 'Teacher Admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      } catch (e) { }
+    }
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();

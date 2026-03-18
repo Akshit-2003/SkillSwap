@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 // Helper for page container to ensure consistent spacing and animation
 const PageContainer = ({ title, children }) => (
-  <div className="page-content" style={{ textAlign: 'left', animation: 'fadeInUp 0.5s ease-out', maxWidth: '1200px', margin: '0 auto' }}>
+  <div className="page-content dashboard-page-container" style={{ textAlign: 'left', animation: 'fadeInUp 0.5s ease-out', maxWidth: '1200px', margin: '0 auto' }}>
     <h1 style={{ fontSize: '2.5rem', marginBottom: '2rem', background: 'linear-gradient(to right, #fff, #aaa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', display: 'inline-block' }}>{title}</h1>
     {children}
   </div>
@@ -112,7 +112,7 @@ export const FindSkills = () => {
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{skill.image}</div>
             <h3 style={{ margin: '0 0 0.5rem 0' }}>{skill.name}</h3>
             <p style={{ color: '#aaa', marginBottom: '1rem' }}>by {skill.mentor}</p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', marginTop: 'auto' }}>
+            <div className="skill-meta-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', marginTop: 'auto' }}>
               <span style={{ background: 'rgba(100, 108, 255, 0.2)', color: '#646cff', padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem' }}>{skill.level}</span>
               <span style={{ color: '#fbbf24' }}>★ {skill.rating}</span>
             </div>
@@ -221,13 +221,13 @@ export const Messages = () => {
 
   return (
     <PageContainer title="Messages">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', minHeight: '500px' }}>
+      <div className="messages-layout" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', minHeight: '500px' }}>
         <div className="card" style={{ margin: 0, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', maxHeight: '600px' }}>
           {loading ? <p style={{textAlign: 'center', padding: '1rem'}}>Loading messages...</p> : conversations.length === 0 ? <p style={{textAlign: 'center', padding: '1rem'}}>No messages yet.</p> : conversations.map(conv => (
-            <div key={conv.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '12px', borderRadius: '12px', background: conv.unread ? 'rgba(255,255,255,0.08)' : 'transparent', cursor: 'pointer', border: '1px solid transparent', transition: 'all 0.2s' }} onMouseOver={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'} onMouseOut={(e) => e.currentTarget.style.borderColor = 'transparent'}>
+            <div key={conv.id} className="message-row" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '12px', borderRadius: '12px', background: conv.unread ? 'rgba(255,255,255,0.08)' : 'transparent', cursor: 'pointer', border: '1px solid transparent', transition: 'all 0.2s' }} onMouseOver={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'} onMouseOut={(e) => e.currentTarget.style.borderColor = 'transparent'}>
               <div className="avatar" style={{ background: conv.color, width: '45px', height: '45px', fontSize: '1rem' }}>{conv.avatar}</div>
               <div style={{ flex: 1, textAlign: 'left' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <div className="message-row-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                   <strong style={{ fontSize: '0.95rem', color: '#fff' }}>{conv.name}</strong>
                   <span style={{ fontSize: '0.75rem', color: '#aaa' }}>{conv.time}</span>
                 </div>
@@ -308,7 +308,7 @@ export const Profile = () => {
             <div style={{ fontSize: '2rem', color: '#fbbf24', fontWeight: 'bold' }}>{user.rating || 4.8} ★</div>
             <div style={{ fontSize: '0.9rem', color: '#aaa' }}>Average Rating ({user.ratingCount || 12} reviews)</div>
           </div>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '1.5rem' }}>
+          <div className="profile-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '1.5rem' }}>
             <button className="btn-outline">Change Avatar</button>
             <button className="btn-danger">Delete Account</button>
           </div>
@@ -330,7 +330,7 @@ export const Profile = () => {
             </div>
             <div className="form-group">
                 <label>Skills Interests</label>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <div className="profile-tags" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     <span className="skill-tag" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem' }}>React</span>
                     <span className="skill-tag" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem' }}>Node.js</span>
                     <span className="skill-tag" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem' }}>Guitar</span>

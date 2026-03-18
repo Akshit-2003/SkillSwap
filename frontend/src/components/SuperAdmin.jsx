@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 // Reusing PageContainer style for consistency
 const PageContainer = ({ title, children }) => (
-    <div className="page-content" style={{ textAlign: 'left', animation: 'fadeInUp 0.5s ease-out', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="page-content admin-page-container super-admin-page" style={{ textAlign: 'left', animation: 'fadeInUp 0.5s ease-out', maxWidth: '1200px', margin: '0 auto' }}>
         <h1 style={{ fontSize: '2.5rem', marginBottom: '2rem', background: 'linear-gradient(to right, #fff, #aaa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', display: 'inline-block' }}>{title}</h1>
         {children}
     </div>
@@ -77,7 +77,7 @@ const SuperAdmin = () => {
                 </div>
             </div>
 
-            <div className="dashboard-grid" style={{ marginTop: '2rem', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
+            <div className="dashboard-grid super-admin-grid" style={{ marginTop: '2rem', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
                 {/* Registration Form */}
                 <div className="card" style={{ margin: 0, textAlign: 'left' }}>
                     <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>Register Teacher Admin</h3>
@@ -124,8 +124,8 @@ const SuperAdmin = () => {
                             <p style={{ color: '#aaa', textAlign: 'center' }}>No admins found.</p>
                         ) : (
                             admins.map(admin => (
-                                <div key={admin._id} className="session-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div key={admin._id} className="session-item super-admin-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div className="super-admin-meta" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                         <div className="avatar" style={{ background: '#bc13fe', fontSize: '1rem', width: '40px', height: '40px' }}>{admin.name.charAt(0)}</div>
                                         <div>
                                             <strong style={{ display: 'block', color: '#fff', fontSize: '0.95rem' }}>{admin.name}</strong>

@@ -58,7 +58,7 @@ const Home = () => {
             The ultimate platform to exchange knowledge. Teach what you know, learn what you don't.
             Connect with a global community of learners today.
           </p>
-          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <div className="hero-actions" style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
             <Link to="/register" className="btn-primary" style={{ textDecoration: 'none', padding: '0.8rem 2rem', borderRadius: '8px' }}>
               Start Swapping
             </Link>
@@ -112,7 +112,7 @@ const Home = () => {
       {/* Why Choose Us Section */}
       <section className="why-us hidden-element" style={{ textAlign: 'center' }}>
         <h2>Why Choose Skillswap?</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem', marginTop: '3rem' }}>
+        <div className="why-us-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem', marginTop: '3rem' }}>
           <div className="card" style={{ textAlign: 'left' }}>
             <h3 style={{ color: '#fff' }}>💰 Completely Free</h3>
             <p>No hidden fees. Knowledge should be accessible to everyone, regardless of budget.</p>
@@ -243,7 +243,7 @@ const Home = () => {
       </section>
 
       {/* Call to Action Section */}
-      <section className="cta hidden-element" style={{ textAlign: 'center', background: 'linear-gradient(180deg, transparent, rgba(100, 108, 255, 0.1))', borderRadius: '16px', marginTop: '2rem' }}>
+      <section className="cta cta-section hidden-element" style={{ textAlign: 'center', background: 'linear-gradient(180deg, transparent, rgba(100, 108, 255, 0.1))', borderRadius: '16px', marginTop: '2rem' }}>
         <h2>Ready to Start Your Journey?</h2>
         <p style={{ maxWidth: '600px', margin: '1rem auto 2rem' }}>Join thousands of learners and teachers today. It's free to get started.</p>
         <Link to="/register" className="btn-primary" style={{ textDecoration: 'none', padding: '1rem 2.5rem', borderRadius: '8px', fontSize: '1.1rem' }}>

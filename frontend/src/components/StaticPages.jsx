@@ -4,9 +4,9 @@ import { Link } from 'react-router-dom';
 
 // Helper for page container to ensure consistent spacing
 const PageContainer = ({ children, title, subtitle, action }) => (
-  <div className="page-content" style={{ maxWidth: '1280px', margin: '0 auto', padding: '4rem 2rem', textAlign: 'center', animation: 'fadeInUp 0.5s ease-out' }}>
-    <div style={{ marginBottom: '5rem', position: 'relative', padding: '2rem 0' }}>
-      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '60%', height: '150%', background: 'radial-gradient(ellipse at center, rgba(100,108,255,0.15) 0%, rgba(0,0,0,0) 70%)', zIndex: -1, pointerEvents: 'none' }}></div>
+  <div className="page-content static-page-container" style={{ maxWidth: '1280px', margin: '0 auto', padding: '4rem 2rem', textAlign: 'center', animation: 'fadeInUp 0.5s ease-out' }}>
+    <div className="static-page-hero" style={{ marginBottom: '5rem', position: 'relative', padding: '2rem 0' }}>
+      <div className="static-page-glow" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '60%', height: '150%', background: 'radial-gradient(ellipse at center, rgba(100,108,255,0.15) 0%, rgba(0,0,0,0) 70%)', zIndex: -1, pointerEvents: 'none' }}></div>
       {title && <h1 style={{ fontSize: '3.5rem', fontWeight: '800', marginBottom: '1.5rem', letterSpacing: '-0.02em', background: 'linear-gradient(to bottom right, #ffffff, #a5a5a5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', display: 'inline-block' }}>{title}</h1>}
       {subtitle && <p style={{ fontSize: '1.25rem', color: '#aaa', maxWidth: '700px', margin: '0 auto', lineHeight: '1.7' }}>{subtitle}</p>}
       {action && <div style={{ marginTop: '2.5rem' }}>{action}</div>}
@@ -82,29 +82,29 @@ export const Features = () => (
 
 export const Pricing = () => (
   <PageContainer title="Simple, Transparent Pricing" subtitle="Education should be accessible to everyone.">
-    <div className="stats-grid" style={{ marginTop: '2rem', alignItems: 'stretch', justifyContent: 'center', gap: '3rem' }}>
-      <div className="card" style={{ border: '2px solid var(--primary, #646cff)', transform: 'scale(1.05)', position: 'relative', padding: '3rem 2rem', background: 'linear-gradient(180deg, rgba(30,30,30,1) 0%, rgba(20,20,20,1) 100%)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+    <div className="stats-grid pricing-grid" style={{ marginTop: '2rem', alignItems: 'stretch', justifyContent: 'center', gap: '3rem' }}>
+      <div className="card pricing-card pricing-card-featured" style={{ border: '2px solid var(--primary, #646cff)', transform: 'scale(1.05)', position: 'relative', padding: '3rem 2rem', background: 'linear-gradient(180deg, rgba(30,30,30,1) 0%, rgba(20,20,20,1) 100%)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
         <div style={{ position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', background: 'var(--primary, #646cff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(100,108,255,0.4)' }}>MOST POPULAR</div>
         <h2>Free Forever</h2>
         <h1 style={{ fontSize: '4rem', color: '#fff', margin: '1rem 0', fontWeight: '800' }}>$0</h1>
         <p style={{ opacity: 0.8 }}>For everyone, everywhere.</p>
-        <ul style={{ listStyle: 'none', padding: 0, textAlign: 'left', margin: '2.5rem 0', display: 'flex', flexDirection: 'column', gap: '15px', fontSize: '1.05rem' }}>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#646cff' }}>✓</span> Unlimited Skill Swaps</li>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#646cff' }}>✓</span> Access to Community Forum</li>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#646cff' }}>✓</span> Basic Profile Customization</li>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#646cff' }}>✓</span> 1-on-1 Video Calls</li>
+        <ul className="pricing-list" style={{ listStyle: 'none', padding: 0, textAlign: 'left', margin: '2.5rem 0', display: 'flex', flexDirection: 'column', gap: '15px', fontSize: '1.05rem' }}>
+          <li className="pricing-list-item" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#646cff' }}>✓</span> Unlimited Skill Swaps</li>
+          <li className="pricing-list-item" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#646cff' }}>✓</span> Access to Community Forum</li>
+          <li className="pricing-list-item" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#646cff' }}>✓</span> Basic Profile Customization</li>
+          <li className="pricing-list-item" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#646cff' }}>✓</span> 1-on-1 Video Calls</li>
         </ul>
         <Link to="/register" className="btn-primary" style={{ width: '100%', padding: '1rem', display: 'block', boxSizing: 'border-box', textDecoration: 'none' }}>Get Started Now</Link>
       </div>
-      <div className="card" style={{ padding: '3rem 2rem', opacity: 0.8, background: 'var(--bg-card)' }}>
+      <div className="card pricing-card" style={{ padding: '3rem 2rem', opacity: 0.8, background: 'var(--bg-card)' }}>
         <h2>Pro (Supporter)</h2>
         <h1 style={{ fontSize: '4rem', margin: '1rem 0', fontWeight: '800' }}>$9</h1>
         <p style={{ opacity: 0.8 }}>/month</p>
-        <ul style={{ listStyle: 'none', padding: 0, textAlign: 'left', margin: '2.5rem 0', display: 'flex', flexDirection: 'column', gap: '15px', fontSize: '1.05rem' }}>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#bc13fe' }}>✓</span> Verified "Supporter" Badge</li>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#bc13fe' }}>✓</span> Priority Customer Support</li>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#bc13fe' }}>✓</span> Advanced Learning Analytics</li>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#bc13fe' }}>✓</span> Support the Platform</li>
+        <ul className="pricing-list" style={{ listStyle: 'none', padding: 0, textAlign: 'left', margin: '2.5rem 0', display: 'flex', flexDirection: 'column', gap: '15px', fontSize: '1.05rem' }}>
+          <li className="pricing-list-item" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#bc13fe' }}>✓</span> Verified "Supporter" Badge</li>
+          <li className="pricing-list-item" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#bc13fe' }}>✓</span> Priority Customer Support</li>
+          <li className="pricing-list-item" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#bc13fe' }}>✓</span> Advanced Learning Analytics</li>
+          <li className="pricing-list-item" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ color: '#bc13fe' }}>✓</span> Support the Platform</li>
         </ul>
         <button className="btn-outline" style={{ width: '100%', padding: '1rem' }}>Coming Soon</button>
       </div>
@@ -156,7 +156,7 @@ export const Reviews = () => (
 
 export const Company = () => (
   <PageContainer title="About Skillswap" subtitle="Building the future of peer-to-peer learning.">
-    <div style={{ maxWidth: '800px', margin: '0 auto', lineHeight: '1.8', fontSize: '1.15rem', textAlign: 'left', color: '#e0e0e0' }}>
+    <div className="text-content-card" style={{ maxWidth: '800px', margin: '0 auto', lineHeight: '1.8', fontSize: '1.15rem', textAlign: 'left', color: '#e0e0e0' }}>
       <p style={{ marginBottom: '1.5rem' }}>
         We believe that education should be accessible to everyone. By connecting people who want to learn with people who can teach, we're building a global community of lifelong learners.
       </p>
@@ -213,22 +213,22 @@ export const Team = () => (
 
 export const Careers = () => (
   <PageContainer title="Join Us" subtitle="Help us shape the future of learning. We are always looking for talent.">
-    <div style={{ marginTop: '2rem', textAlign: 'left', maxWidth: '800px', margin: '2rem auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2.5rem', flexDirection: 'row', textAlign: 'left' }}>
+    <div className="careers-list" style={{ marginTop: '2rem', textAlign: 'left', maxWidth: '800px', margin: '2rem auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="card career-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2.5rem', flexDirection: 'row', textAlign: 'left' }}>
         <div>
           <h3 style={{ marginBottom: '0.5rem', fontSize: '1.4rem' }}>Frontend Developer</h3>
           <p style={{ color: '#aaa', margin: 0 }}>Remote • React, CSS, WebRTC</p>
         </div>
         <button className="btn-primary">Apply Now</button>
       </div>
-      <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2.5rem', flexDirection: 'row', textAlign: 'left' }}>
+      <div className="card career-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2.5rem', flexDirection: 'row', textAlign: 'left' }}>
         <div>
           <h3 style={{ marginBottom: '0.5rem', fontSize: '1.4rem' }}>Community Manager</h3>
           <p style={{ color: '#aaa', margin: 0 }}>Remote • Social Media, Support</p>
         </div>
         <button className="btn-primary">Apply Now</button>
       </div>
-      <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2.5rem', flexDirection: 'row', textAlign: 'left' }}>
+      <div className="card career-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2.5rem', flexDirection: 'row', textAlign: 'left' }}>
         <div>
           <h3 style={{ marginBottom: '0.5rem', fontSize: '1.4rem' }}>Backend Engineer</h3>
           <p style={{ color: '#aaa', margin: 0 }}>Remote • Node.js, MongoDB</p>
@@ -299,7 +299,7 @@ export const Blog = () => (
 
 export const Guides = () => (
   <PageContainer title="Learning Guides" subtitle="Master the platform and your skills.">
-    <div className="faq-list" style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="faq-list text-content-card" style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div className="faq-item" style={{ background: '#1a1a1a', padding: '2rem', borderRadius: '12px', textAlign: 'left', border: '1px solid #333' }}>
         <h3 style={{ marginBottom: '0.5rem', color: '#646cff' }}>Getting Started</h3>
         <p>Create your profile, list your skills, and browse the marketplace. Make sure to add a clear profile picture and bio.</p>
@@ -331,7 +331,7 @@ export const Community = () => (
 
 export const Legal = () => (
   <PageContainer title="Legal Information" subtitle="Transparency is key to our relationship with you.">
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
+    <div className="legal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
       <Link to="/legal/privacy" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: '3rem 2rem' }}>
         <h3>🔒 Privacy Policy</h3>
         <p>How we handle your data.</p>
@@ -350,7 +350,7 @@ export const Legal = () => (
 
 export const Privacy = () => (
   <PageContainer title="Privacy Policy" subtitle="Last updated: October 2023">
-    <div style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto', background: '#1a1a1a', padding: '3rem', borderRadius: '16px' }}>
+    <div className="legal-content-card" style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto', background: '#1a1a1a', padding: '3rem', borderRadius: '16px' }}>
       <h3 style={{ color: '#646cff' }}>1. Information We Collect</h3>
       <p style={{ marginBottom: '1.5rem', lineHeight: '1.6' }}>We collect information you provide directly to us, such as when you create or modify your account, request on-demand services, contact customer support, or otherwise communicate with us.</p>
       <h3 style={{ color: '#646cff' }}>2. How We Use Your Information</h3>
@@ -363,7 +363,7 @@ export const Privacy = () => (
 
 export const Terms = () => (
   <PageContainer title="Terms of Service" subtitle="Last updated: October 2023">
-    <div style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto', background: '#1a1a1a', padding: '3rem', borderRadius: '16px' }}>
+    <div className="legal-content-card" style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto', background: '#1a1a1a', padding: '3rem', borderRadius: '16px' }}>
       <h3 style={{ color: '#646cff' }}>1. Acceptance of Terms</h3>
       <p style={{ marginBottom: '1.5rem', lineHeight: '1.6' }}>By accessing or using our Services, you agree to be bound by these Terms. If you do not agree to these Terms, you may not access or use the Services.</p>
       <h3 style={{ color: '#646cff' }}>2. User Conduct</h3>

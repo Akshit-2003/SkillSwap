@@ -1759,3 +1759,652 @@ footer {
   outline: none;
   box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.1);
 }
+
+.nav-group {
+  display: flex;
+  align-items: center;
+}
+
+.nav-group-primary {
+  gap: 4rem;
+}
+
+.nav-group-home {
+  gap: 9rem;
+}
+
+.nav-group-secondary {
+  gap: 1.5rem;
+}
+
+.hero-actions {
+  align-items: center;
+}
+
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.nav-toggle span {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.testimonial-grid,
+.why-us-grid {
+  display: grid;
+}
+
+.pricing-grid,
+.legal-grid,
+.messages-layout {
+  display: grid;
+}
+
+.career-card,
+.profile-actions,
+.message-row,
+.message-row-header,
+.admin-request-item,
+.admin-request-meta,
+.admin-request-actions,
+.super-admin-row,
+.super-admin-meta {
+  display: flex;
+}
+
+.responsive-table {
+  width: 100%;
+}
+
+.text-content-card,
+.legal-content-card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.main-admin-shell,
+.main-admin-overview {
+  display: flex;
+}
+
+.main-admin-stats-grid,
+.main-admin-chart-grid,
+.main-admin-skill-grid,
+.main-admin-announcements-grid,
+.main-admin-report-grid,
+.main-admin-settings-grid {
+  display: grid;
+}
+
+textarea,
+select {
+  box-sizing: border-box;
+}
+
+img,
+video {
+  max-width: 100%;
+}
+
+@media (max-width: 1200px) {
+  body {
+    font-size: 18px;
+  }
+
+  .nav-group-home {
+    gap: 3rem;
+  }
+
+  .hero h1 {
+    font-size: 4.2rem;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}
+
+@media (max-width: 992px) {
+  nav {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+  }
+
+  .nav-group {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .nav-group-primary,
+  .nav-group-home {
+    gap: 1rem 1.5rem;
+  }
+
+  .nav-group-secondary {
+    justify-content: flex-start;
+  }
+
+  .nav-links {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.85rem 1.25rem;
+  }
+
+  .why-us-grid,
+  .testimonial-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  .dropdown {
+    left: 0;
+    transform: translateY(20px);
+    min-width: min(280px, calc(100vw - 3rem));
+  }
+
+  .dropdown::before {
+    left: 24px;
+    transform: none;
+  }
+
+  .nav-item:hover .dropdown {
+    transform: translateY(12px);
+  }
+
+  .hero {
+    min-height: auto;
+    padding: 7rem 1.5rem 5rem;
+  }
+
+  .hero-content {
+    padding: 1.5rem;
+  }
+
+  .hero h1 {
+    font-size: 3.4rem;
+  }
+
+  .hero p {
+    font-size: 1.15rem;
+  }
+
+  .features,
+  .why-us,
+  .popular-skills,
+  .testimonials,
+  .learning-experiences,
+  .cta,
+  .faq,
+  .page-content {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .dashboard-header {
+    align-items: flex-start;
+  }
+
+  .view-toggle {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .view-toggle button {
+    flex: 1 1 140px;
+  }
+
+  .session-item,
+  .mentor-item,
+  .challenge-item,
+  .match-item {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .notification-dropdown {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(320px, calc(100vw - 2rem));
+  }
+
+  .login-container {
+    position: relative;
+    min-height: 100vh;
+    height: auto;
+    padding: 2rem 1rem;
+    box-sizing: border-box;
+  }
+
+  .login-card,
+  .modal-content {
+    width: min(100%, 500px);
+  }
+
+  .pricing-card-featured {
+    transform: none !important;
+  }
+
+  .super-admin-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+  }
+
+  .main-admin-chart-grid,
+  .main-admin-report-grid,
+  .main-admin-settings-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+
+  h1 {
+    font-size: 2.6rem;
+  }
+
+  nav {
+    padding: 0.9rem 1rem;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+
+  .logo {
+    font-size: 1.55rem;
+  }
+
+  .nav-links {
+    display: none;
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 1rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .nav-links-open {
+    display: flex;
+  }
+
+  .nav-item {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .nav-link {
+    display: inline-flex;
+  }
+
+  .dropdown {
+    position: static;
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+    display: none;
+    width: 100%;
+    min-width: 0;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    box-sizing: border-box;
+  }
+
+  .dropdown::before {
+    display: none;
+  }
+
+  .nav-item:hover .dropdown {
+    display: flex;
+    transform: none;
+  }
+
+  .nav-group-secondary {
+    display: none;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .nav-group-open {
+    display: flex;
+  }
+
+  .nav-group-secondary .btn-primary,
+  .nav-group-secondary .btn-outline {
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  .page-content {
+    padding-top: 10rem;
+  }
+
+  .main-admin-shell {
+    flex-direction: column;
+  }
+
+  .main-admin-sidebar {
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .main-admin-content {
+    margin-left: 0 !important;
+  }
+
+  .main-admin-topbar {
+    height: auto !important;
+    padding: 1rem !important;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 1rem;
+  }
+
+  .main-admin-search {
+    width: 100% !important;
+  }
+
+  .main-admin-topbar-actions {
+    justify-content: space-between;
+    gap: 1rem !important;
+  }
+
+  .main-admin-body {
+    padding: 1rem !important;
+  }
+
+  .hero {
+    padding: 7.5rem 1rem 4rem;
+  }
+
+  .hero-content {
+    padding: 1rem;
+  }
+
+  .hero h1 {
+    font-size: 2.7rem;
+  }
+
+  .hero p {
+    font-size: 1rem;
+    margin-bottom: 1.8rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .hero-actions a {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+
+  .dashboard-grid,
+  .features-grid,
+  .experiences-grid,
+  .footer-grid,
+  .dashboard-stats,
+  .testimonial-grid,
+  .why-us-grid,
+  .legal-grid,
+  .messages-layout,
+  .pricing-grid,
+  .super-admin-grid,
+  .main-admin-chart-grid,
+  .main-admin-report-grid,
+  .main-admin-settings-grid,
+  .main-admin-announcements-grid,
+  .main-admin-skill-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    gap: 2rem;
+  }
+
+  .stat-number {
+    font-size: 3rem;
+  }
+
+  .card,
+  .skill-card,
+  .feature-item,
+  .experience-card,
+  .faq-item,
+  .login-card,
+  .modal-content {
+    padding: 1.5rem;
+  }
+
+  .skill-list li,
+  .session-item,
+  .mentor-item,
+  .challenge-item,
+  .match-item {
+    align-items: flex-start;
+  }
+
+  .add-skill-box,
+  .social-buttons,
+  .profile-actions,
+  .admin-request-actions {
+    flex-direction: column;
+  }
+
+  .career-card,
+  .message-row,
+  .message-row-header,
+  .admin-request-item,
+  .admin-request-meta,
+  .super-admin-row,
+  .super-admin-meta {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+
+  .skill-meta-row {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.75rem;
+  }
+
+  .career-card .btn-primary,
+  .career-card .btn-outline,
+  .profile-actions .btn-outline,
+  .profile-actions .btn-danger,
+  .admin-request-actions button,
+  .super-admin-row .btn-danger {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .message-row {
+    gap: 0.75rem;
+  }
+
+  .message-row-header {
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .text-content-card,
+  .legal-content-card,
+  .static-page-hero {
+    margin-bottom: 2rem !important;
+  }
+
+  .static-page-glow {
+    width: 100% !important;
+  }
+
+  .pricing-list-item {
+    align-items: flex-start !important;
+  }
+
+  .responsive-table table {
+    min-width: 520px !important;
+  }
+
+  .main-admin-modal-overlay {
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  .main-admin-modal,
+  .main-admin-modal-wide {
+    width: min(100%, 520px) !important;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+
+  .values-grid,
+  .skills-grid {
+    gap: 1rem;
+  }
+
+  .skill-tag {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+
+  .skill-tooltip {
+    width: min(220px, calc(100vw - 3rem));
+  }
+
+  .footer-container,
+  .stats-grid,
+  .features,
+  .why-us,
+  .popular-skills,
+  .testimonials,
+  .learning-experiences,
+  .cta,
+  .faq,
+  .page-content {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .modal-overlay {
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  .modal-content {
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+
+  .cta-section .btn-primary {
+    width: 100%;
+    display: inline-block;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo {
+    font-size: 1.3rem;
+  }
+
+  .logo img {
+    width: 24px;
+    height: 24px;
+  }
+
+  .hero {
+    padding-top: 8rem;
+  }
+
+  .hero h1 {
+    font-size: 2.2rem;
+  }
+
+  .hero::after {
+    height: 120px;
+  }
+
+  .stat-number {
+    font-size: 2.5rem;
+  }
+
+  .view-toggle button {
+    flex-basis: 100%;
+  }
+
+  .session-date {
+    margin-right: 0;
+  }
+
+  .notification-dropdown {
+    width: calc(100vw - 1rem);
+  }
+
+  .login-card {
+    padding: 1.25rem;
+  }
+
+  .btn-outline,
+  .btn-primary,
+  .btn-danger,
+  .btn-social,
+  .btn-block,
+  button {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .static-page-container,
+  .dashboard-page-container,
+  .admin-page-container {
+    padding-top: 9rem;
+  }
+
+  .legal-content-card,
+  .text-content-card,
+  .career-card,
+  .pricing-card {
+    padding: 1.25rem !important;
+  }
+
+  .responsive-table table {
+    min-width: 460px !important;
+  }
+
+  .main-admin-topbar-actions {
+    flex-wrap: wrap;
+  }
+
+  .main-admin-modal,
+  .main-admin-modal-wide {
+    padding: 1.25rem !important;
+  }
+}
