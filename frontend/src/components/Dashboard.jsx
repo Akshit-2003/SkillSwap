@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { buildApiUrl } from '../api';
+import { apiRoutes } from '../routes/apiRoutes';
+import { getStoredUser, storeUser } from '../utils/auth';
 
 const StatCounter = ({ end, duration = 2000, suffix = "" }) => {
   const [count, setCount] = useState(0);
@@ -35,6 +38,8 @@ const Dashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [ratingValue, setRatingValue] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [ratingSession, setRatingSession] = useState(null);
   const [modalType, setModalType] = useState('offered'); // 'offered' or 'wanted'
   const [skillForm, setSkillForm] = useState({
     name: '',
@@ -49,19 +54,16 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
+      const parsedUser = getStoredUser();
+      if (parsedUser) {
         try {
-          // Fetch latest user data from backend
-          const response = await fetch(`http://localhost:5000/user?email=${parsedUser.email}`);
+          const response = await fetch(buildApiUrl(`${apiRoutes.user.profile}?email=${encodeURIComponent(parsedUser.email)}`));
           if (response.ok) {
             const data = await response.json();
-            // Ensure defaults for UI if missing
             if (data.rating === undefined) data.rating = 4.8;
             if (data.ratingCount === undefined) data.ratingCount = 12;
             setUser(data);
-            localStorage.setItem('user', JSON.stringify(data));
+            storeUser(data);
           } else {
             setUser(parsedUser);
           }
@@ -122,15 +124,22 @@ const Dashboard = () => {
       // Formatting the skill string to include details (since backend expects string)
       const skillString = `${skillForm.name} (${skillForm.proficiency}) [Pending Approval: ${skillForm.proofs.join(', ')}]`;
 
-      const response = await fetch('http://localhost:5000/add-skill', {
+      const formData = new FormData();
+      formData.append('email', user.email);
+      formData.append('skill', skillString);
+      formData.append('type', modalType);
+      if (skillForm.certificateFile) {
+        formData.append('certificateFile', skillForm.certificateFile);
+      }
+
+      const response = await fetch(buildApiUrl(apiRoutes.user.skills), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, skill: skillString, type: modalType }),
+        body: formData,
       });
       const data = await response.json();
       if (response.ok) {
         setUser(data.user);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        storeUser(data.user);
         setShowModal(false);
         alert("Verification request sent to Admin! Your skill is pending approval.");
       }
@@ -142,18 +151,46 @@ const Dashboard = () => {
     }
   };
 
-  const handleCompleteSession = () => {
+  const handleCompleteSession = (session) => {
     setRatingValue(0);
+    setRatingComment('');
+    setRatingSession(session);
     setShowRatingModal(true);
   };
 
-  const submitRating = () => {
+  const submitRating = async () => {
     if (ratingValue === 0) {
       alert("Rating is mandatory! Please select a star rating to complete the session.");
       return;
     }
-    alert(`Session completed! You rated it ${ratingValue} stars.`);
-    setShowRatingModal(false);
+    try {
+      const response = await fetch(buildApiUrl(apiRoutes.user.sessionFeedback), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          submittedByEmail: user.email,
+          teacherName: ratingSession?.teacherName || 'Community Mentor',
+          teacherEmail: ratingSession?.teacherEmail || '',
+          skillTaught: ratingSession?.skillTaught || user.skillsWanted?.[0] || 'General Session',
+          rating: ratingValue,
+          complaint: ratingComment
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.message || data.error || 'Failed to submit rating.');
+        return;
+      }
+      if (data.teacher && data.teacher.email === user.email) {
+        setUser(data.teacher);
+        storeUser(data.teacher);
+      }
+      alert(`Session completed! You rated it ${ratingValue} stars.`);
+      setShowRatingModal(false);
+    } catch (error) {
+      console.error('Session feedback error:', error);
+      alert('Could not connect to backend to submit the rating.');
+    }
   };
 
   if (!user) return <div>Loading...</div>;
@@ -263,7 +300,7 @@ const Dashboard = () => {
                     <strong>React Hooks Deep Dive</strong>
                     <small>with Sarah Jenkins • 10:00 AM</small>
                   </div>
-                  <button className="btn-primary" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={handleCompleteSession}>Complete</button>
+                  <button className="btn-primary" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={() => handleCompleteSession({ teacherName: 'Sarah Jenkins', teacherEmail: '', skillTaught: 'React Hooks Deep Dive' })}>Complete</button>
                 </div>
                 <div className="session-item">
                   <div className="session-date">
@@ -414,7 +451,7 @@ const Dashboard = () => {
                     <strong>Intro to Python</strong>
                     <small>Student: Alice • 4:00 PM</small>
                   </div>
-                  <button className="btn-primary" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={handleCompleteSession}>Complete</button>
+                  <button className="btn-primary" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={() => handleCompleteSession({ teacherName: user.name, teacherEmail: user.email, skillTaught: 'Intro to Python' })}>Complete</button>
                 </div>
                 <div className="session-item">
                   <div className="session-date">
@@ -616,6 +653,8 @@ const Dashboard = () => {
             </div>
             <textarea 
               placeholder="Write a brief review (optional)..." 
+              value={ratingComment}
+              onChange={(e) => setRatingComment(e.target.value)}
               style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #333', background: '#222', color: '#fff', marginBottom: '1.5rem', minHeight: '80px' }}
             ></textarea>
             <button className="btn-primary" onClick={submitRating} style={{ width: '100%' }}>Submit Rating</button>

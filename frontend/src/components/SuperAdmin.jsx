@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { buildApiUrl } from '../api';
 
 // Reusing PageContainer style for consistency
 const PageContainer = ({ title, children }) => (
@@ -15,7 +16,7 @@ const SuperAdmin = () => {
     // Function to fetch admins from backend
     const fetchAdmins = async () => {
         try {
-            const response = await fetch('http://localhost:5000/get-teacher-admins');
+            const response = await fetch(buildApiUrl('get-teacher-admins'));
             const data = await response.json();
             if (response.ok) {
                 setAdmins(data);
@@ -33,7 +34,7 @@ const SuperAdmin = () => {
     const handleRegister = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch('http://localhost:5000/register-teacher-admin', {
+            const response = await fetch(buildApiUrl('register-teacher-admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
@@ -52,7 +53,7 @@ const SuperAdmin = () => {
     const handleRemove = async (id) => {
         if (window.confirm('Are you sure you want to remove this admin?')) {
             try {
-                const response = await fetch(`http://localhost:5000/remove-admin/${id}`, { method: 'DELETE' });
+                const response = await fetch(buildApiUrl(`remove-admin/${id}`), { method: 'DELETE' });
                 const data = await response.json();
                 alert(data.message);
                 if (response.ok) {

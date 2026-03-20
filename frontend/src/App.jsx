@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import Home from './components/Home';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -15,6 +15,8 @@ import TeacherAdmin from './components/TeacherAdmin';
 import SuperAdmin from './components/mainAdmin';
 import AdminLogin from './components/AdminLogin';
 import SuperAdminRegister from './components/SuperAdminRegister';
+import ProtectedRoute from './components/ProtectedRoute';
+import { clearStoredUser, getStoredUser } from './utils/auth';
 
 function Navbar() {
   const location = useLocation();
@@ -26,9 +28,8 @@ function Navbar() {
 
   useEffect(() => {
     const updateCredits = () => {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
+      const parsedUser = getStoredUser();
+      if (parsedUser) {
         setCredits(parsedUser.credits !== undefined ? parsedUser.credits : 5);
       }
     };
@@ -54,9 +55,13 @@ function Navbar() {
   }, []);
 
   const isHome = location.pathname === '/';
+  const isProduct = location.pathname.startsWith('/product');
+  const isCompany = location.pathname.startsWith('/company');
+  const isResources = location.pathname.startsWith('/resources');
+  const isLegal = location.pathname.startsWith('/legal');
 
   // Agar path login ya register hai to navbar mat dikhao
-  if (['/login', '/register', '/admin/login', '/super-admin/register', '/main-admin/register'].includes(location.pathname) || location.pathname.startsWith('/super-admin')) {
+  if (['/login', '/register', '/admin/login', '/super-admin/register', '/main-admin/register'].includes(location.pathname) || location.pathname.startsWith('/super-admin') || location.pathname.startsWith('/admin')) {
     return null;
   }
 
@@ -125,7 +130,7 @@ function Navbar() {
           <div className="avatar" style={{ width: '35px', height: '35px', background: 'linear-gradient(135deg, #646cff, #bc13fe)', fontSize: '0.9rem', cursor: 'pointer', marginRight: 0 }}>Me</div>
           <button
             onClick={() => {
-              localStorage.removeItem('user');
+              clearStoredUser();
               navigate('/');
             }}
             className="btn-outline"
@@ -138,44 +143,6 @@ function Navbar() {
     );
   }
 
-  // Teacher Admin Navbar
-  if (location.pathname.startsWith('/admin')) {
-    return (
-      <nav>
-        <button
-          type="button"
-          className="nav-toggle"
-          onClick={() => setIsMobileMenuOpen((open) => !open)}
-          aria-label="Toggle navigation menu"
-          aria-expanded={isMobileMenuOpen}
-        >
-          <span></span>
-          <span></span>
-          <span></span>
-        </button>
-        <div className="nav-group nav-group-primary">
-          <div className="logo" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.5rem', cursor: 'default' }}>
-            <span style={{ fontSize: '1.8rem' }}>🎓</span>
-            Teacher Portal
-          </div>
-          <div className={`nav-links ${isMobileMenuOpen ? 'nav-links-open' : ''}`}>
-            <Link to="/admin/overview" className="nav-link">Overview</Link>
-            <Link to="/admin/requests" className="nav-link">Requests</Link>
-            <Link to="/admin/instructors" className="nav-link">Instructors</Link>
-          </div>
-        </div>
-        <div className={`nav-group nav-group-secondary ${isMobileMenuOpen ? 'nav-group-open' : ''}`}>
-          <button
-            onClick={() => { localStorage.removeItem('user'); navigate('/admin/login'); }}
-            className="btn-outline"
-            style={{ padding: '0.5rem 1.2rem', fontSize: '0.9rem', borderColor: '#ff4d4d', color: '#ff4d4d' }}
-          >
-            Logout
-          </button>
-        </div>
-      </nav>
-    );
-  }
 
   return (
     <nav>
@@ -196,10 +163,10 @@ function Navbar() {
           Skillswap
         </div>
         <div className={`nav-links ${isMobileMenuOpen ? 'nav-links-open' : ''}`}>
-          <Link to="/" className={`nav-link ${isHome ? 'active' : ''}`}>Home</Link>
+          <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>Home</NavLink>
 
           <div className="nav-item">
-            <Link to="/product" className={`nav-link ${isHome ? 'active' : ''}`}>Product ▾</Link>
+            <NavLink to="/product" className={`nav-link ${isProduct ? 'active' : ''}`}>Product</NavLink>
             <div className="dropdown">
               <Link to="/product/features">Features</Link>
               <Link to="/product/pricing">Pricing</Link>
@@ -208,7 +175,7 @@ function Navbar() {
           </div>
 
           <div className="nav-item">
-            <Link to="/company" className={`nav-link ${isHome ? 'active' : ''}`}>Company ▾</Link>
+            <NavLink to="/company" className={`nav-link ${isCompany ? 'active' : ''}`}>Company</NavLink>
             <div className="dropdown">
               <Link to="/company/about">About Us</Link>
               <Link to="/company/team">Our Team</Link>
@@ -217,7 +184,7 @@ function Navbar() {
           </div>
 
           <div className="nav-item">
-            <Link to="/resources" className={`nav-link ${isHome ? 'active' : ''}`}>Resources ▾</Link>
+            <NavLink to="/resources" className={`nav-link ${isResources ? 'active' : ''}`}>Resources</NavLink>
             <div className="dropdown">
               <Link to="/resources/blog">Blog</Link>
               <Link to="/resources/guides">Guides</Link>
@@ -226,7 +193,7 @@ function Navbar() {
           </div>
 
           <div className="nav-item">
-            <Link to="/legal" className={`nav-link ${isHome ? 'active' : ''}`}>Legal ▾</Link>
+            <NavLink to="/legal" className={`nav-link ${isLegal ? 'active' : ''}`}>Legal</NavLink>
             <div className="dropdown">
               <Link to="/legal/privacy">Privacy Policy</Link>
               <Link to="/legal/terms">Terms of Service</Link>
@@ -234,7 +201,10 @@ function Navbar() {
           </div>
         </div>
       </div>
-      <div className={`nav-group nav-group-secondary ${isMobileMenuOpen ? 'nav-group-open' : ''}`}>
+      <div className={`nav-group nav-group-secondary ${isMobileMenuOpen ? 'nav-group-open' : ''}`} style={{ alignItems: 'center' }}>
+        <Link to="/admin/login" style={{ textDecoration: 'none', color: '#9ca3af', fontSize: '0.85rem', marginRight: '15px' }}>
+          Admin
+        </Link>
         <Link to="/register" className="btn-primary" style={{ textDecoration: 'none', padding: '0.6rem 1.5rem', borderRadius: '30px', fontSize: '0.95rem', fontWeight: '600' }}>
           Get Started
         </Link>
@@ -252,16 +222,16 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<div className="page-content"><Dashboard /></div>} />
-        <Route path="/dashboard/my-skills" element={<MySkills />} />
-        <Route path="/dashboard/messages" element={<Messages />} />
-        <Route path="/dashboard/profile" element={<Profile />} />
-        <Route path="/dashboard/find-skills" element={<FindSkills />} />
+        <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['User']}><div className="page-content"><Dashboard /></div></ProtectedRoute>} />
+        <Route path="/dashboard/my-skills" element={<ProtectedRoute allowedRoles={['User']}><MySkills /></ProtectedRoute>} />
+        <Route path="/dashboard/messages" element={<ProtectedRoute allowedRoles={['User']}><Messages /></ProtectedRoute>} />
+        <Route path="/dashboard/profile" element={<ProtectedRoute allowedRoles={['User']}><Profile /></ProtectedRoute>} />
+        <Route path="/dashboard/find-skills" element={<ProtectedRoute allowedRoles={['User']}><FindSkills /></ProtectedRoute>} />
         <Route path="/community" element={<Community />} />
-        <Route path="/admin/*" element={<TeacherAdmin />} />
-        <Route path="/super-admin/*" element={<SuperAdmin />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/super-admin/register" element={<SuperAdminRegister />} />
+        <Route path="/admin/*" element={<ProtectedRoute allowedRoles={['Teacher Admin', 'Main Admin', 'Super Admin']}><TeacherAdmin /></ProtectedRoute>} />
+        <Route path="/super-admin/*" element={<ProtectedRoute allowedRoles={['Main Admin', 'Super Admin']}><SuperAdmin /></ProtectedRoute>} />
         {/* Main Admin Route alias */}
         <Route path="/main-admin/register" element={<SuperAdminRegister />} />
 
@@ -287,6 +257,7 @@ function App() {
         <Route path="/legal" element={<Legal />} />
         <Route path="/legal/privacy" element={<Privacy />} />
         <Route path="/legal/terms" element={<Terms />} />
+        <Route path="/legal/guidelines" element={<Terms />} />
       </Routes>
     </Router>
   );

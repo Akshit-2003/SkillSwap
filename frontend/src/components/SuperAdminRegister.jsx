@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import API from '../api';
+import { apiRoutes } from '../routes/apiRoutes';
+import { getHomeRouteForUser, getStoredUser } from '../utils/auth';
 
 const SuperAdminRegister = () => {
   const [name, setName] = useState('');
@@ -9,18 +12,9 @@ const SuperAdminRegister = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.role === 'Main Admin' || user.role === 'Super Admin') {
-          navigate('/super-admin');
-        } else if (user.role === 'Teacher Admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
-      } catch (e) { }
+    const user = getStoredUser();
+    if (user) {
+      navigate(getHomeRouteForUser(user));
     }
   }, [navigate]);
 
@@ -33,23 +27,12 @@ const SuperAdminRegister = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/register-super-admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, secretKey }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        alert('Main Admin Registered Successfully!');
-        navigate('/admin/login');
-      } else {
-        alert(data.message || 'Registration Failed');
-      }
+      await API.post(apiRoutes.auth.registerSuperAdmin, { name, email, password, secretKey });
+      alert('Main Admin Registered Successfully!');
+      navigate('/admin/login');
     } catch (error) {
       console.error('Error:', error);
-      alert('Something went wrong! Ensure backend is running.');
+      alert(error.response?.data?.message || 'Registration Failed');
     }
   };
 

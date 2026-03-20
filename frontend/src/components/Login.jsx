@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import API from '../api';
+import { apiRoutes } from '../routes/apiRoutes';
+import { getHomeRouteForUser, getStoredUser, storeUser } from '../utils/auth';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -8,46 +11,32 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.role === 'Main Admin' || user.role === 'Super Admin') {
-          navigate('/super-admin');
-        } else if (user.role === 'Teacher Admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
-      } catch (e) { }
+    const user = getStoredUser();
+    if (user) {
+      navigate(getHomeRouteForUser(user));
     }
   }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const res = await API.post(apiRoutes.auth.login, {
+        email,
+        password,
       });
 
-      const data = await response.json();
+      const data = res.data;
 
-      if (response.ok) {
-        // Initialize credits if not present (Simulating "5 credits on registration")
-        if (data.user.credits === undefined) {
-          data.user.credits = 5;
-        }
-        localStorage.setItem('user', JSON.stringify(data.user));
-        alert('Login Successful!');
-        navigate('/dashboard');
-      } else {
-        alert(data.message || 'Login Failed');
+      // Initialize credits if not present (Simulating "5 credits on registration")
+      if (data.user.credits === undefined) {
+        data.user.credits = 5;
       }
+      storeUser(data.user);
+      alert('Login Successful!');
+      navigate(getHomeRouteForUser(data.user));
     } catch (error) {
       console.error('Error:', error);
-      alert('Something went wrong!');
+      alert(error.response?.data?.message || 'Login Failed');
     }
   };
 

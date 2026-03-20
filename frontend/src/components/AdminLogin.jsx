@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import API from '../api';
+import { apiRoutes } from '../routes/apiRoutes';
+import { getHomeRouteForUser, getStoredUser, storeUser } from '../utils/auth';
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
@@ -7,18 +10,9 @@ const AdminLogin = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.role === 'Main Admin' || user.role === 'Super Admin') {
-          navigate('/super-admin');
-        } else if (user.role === 'Teacher Admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
-      } catch (e) { }
+    const user = getStoredUser();
+    if (user) {
+      navigate(getHomeRouteForUser(user));
     }
   }, [navigate]);
 
@@ -26,43 +20,25 @@ const AdminLogin = () => {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:5000/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await API.post(apiRoutes.auth.login, { email, password });
+      const user = response.data.user;
 
-      const data = await response.json();
-
-      if (response.ok) {
-        const user = data.user;
-        // Check for specific admin roles
+      if (user) {
         if (user.role === 'Main Admin' || user.role === 'Super Admin') {
-          localStorage.setItem('user', JSON.stringify(user));
+          storeUser(user);
           alert('Welcome Main Admin!');
           navigate('/super-admin');
         } else if (user.role === 'Teacher Admin') {
-          localStorage.setItem('user', JSON.stringify(user));
+          storeUser(user);
           alert('Welcome Teacher Admin!');
           navigate('/admin');
         } else {
           alert('Access Denied: You do not have admin privileges.');
         }
-      } else {
-        alert(data.message || 'Invalid Admin Credentials');
       }
     } catch (error) {
       console.error('Login Error:', error);
-      // Fallback for development if backend is unreachable
-      if (email === 'super@Skillswap.com' && password === 'super123') {
-        alert('Welcome Main Admin (Dev Mode)!');
-        navigate('/super-admin');
-      } else if (email.includes('admin') && password === 'admin123') {
-        alert('Welcome Teacher Admin (Dev Mode)!');
-        navigate('/admin');
-      } else {
-        alert('Server unreachable and invalid credentials.');
-      }
+      alert(error.response?.data?.message || 'Invalid Admin Credentials');
     }
   };
 

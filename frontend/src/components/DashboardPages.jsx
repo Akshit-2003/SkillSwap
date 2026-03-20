@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { buildApiUrl } from '../api';
+import { apiRoutes } from '../routes/apiRoutes';
+import { getStoredUser, storeUser } from '../utils/auth';
 
 // Helper for page container to ensure consistent spacing and animation
 const PageContainer = ({ title, children }) => (
@@ -11,6 +15,7 @@ const PageContainer = ({ title, children }) => (
 export const FindSkills = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
   const [skills, setSkills] = useState([
     { id: 1, name: 'React Development', mentor: 'Sarah J.', level: 'Advanced', rating: 4.9, image: '⚛️' },
     { id: 2, name: 'Guitar Basics', mentor: 'Mike T.', level: 'Beginner', rating: 4.8, image: '🎸' },
@@ -21,15 +26,15 @@ export const FindSkills = () => {
   ]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
+    const storedUser = getStoredUser();
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      setUser(storedUser);
     }
 
     // Fetch global skills from backend
     const fetchSkills = async () => {
       try {
-        const response = await fetch('http://localhost:5000/all-skills');
+        const response = await fetch(buildApiUrl(apiRoutes.platform.skills));
         if (response.ok) {
           const data = await response.json();
           // Assuming data is an array of { name: "User Name", skill: "Skill String", ... }
@@ -72,7 +77,7 @@ export const FindSkills = () => {
     if (!user) return;
 
     try {
-      const response = await fetch('http://localhost:5000/request-swap', {
+      const response = await fetch(buildApiUrl(apiRoutes.user.swapRequests), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email, skillName }),
@@ -83,8 +88,7 @@ export const FindSkills = () => {
       if (response.ok) {
         const updatedUser = data.user;
         setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        window.dispatchEvent(new Event('user_updated'));
+        storeUser(updatedUser);
         alert(`Swap requested for ${skillName}! 1 credit deducted. Remaining credits: ${updatedUser.credits}`);
       } else {
         alert(data.message || "Insufficient credits! You need at least 1 credit to learn a new skill.");
@@ -126,13 +130,14 @@ export const FindSkills = () => {
 
 export const MySkills = () => {
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserSkills = async () => {
-      const storedUser = JSON.parse(localStorage.getItem('user'));
+      const storedUser = getStoredUser();
       if (storedUser) {
         try {
-          const response = await fetch(`http://localhost:5000/user?email=${storedUser.email}`);
+          const response = await fetch(buildApiUrl(`${apiRoutes.user.profile}?email=${encodeURIComponent(storedUser.email)}`));
           if (response.ok) {
             const data = await response.json();
             setUser(data);
@@ -166,7 +171,7 @@ export const MySkills = () => {
               <li style={{ justifyContent: 'center', color: '#aaa' }}>No skills added yet.</li>
             )}
           </ul>
-          <button className="btn-outline" style={{ width: '100%', marginTop: '1rem' }}>Find More Skills</button>
+          <button className="btn-outline" style={{ width: '100%', marginTop: '1rem' }} onClick={() => navigate('/dashboard/find-skills')}>Find More Skills</button>
         </div>
         <div className="skill-card">
           <h3>👨‍🏫 Teaching</h3>
@@ -182,7 +187,7 @@ export const MySkills = () => {
               <li style={{ justifyContent: 'center', color: '#aaa' }}>No teaching skills yet.</li>
             )}
           </ul>
-          <button className="btn-primary" style={{ width: '100%', marginTop: '1rem' }}>Add New Skill</button>
+          <button className="btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => navigate('/dashboard')}>Add New Skill</button>
         </div>
       </div>
     </PageContainer>
@@ -195,10 +200,10 @@ export const Messages = () => {
 
   useEffect(() => {
     const fetchMessages = async () => {
-      const storedUser = JSON.parse(localStorage.getItem('user'));
+      const storedUser = getStoredUser();
       if (storedUser) {
         try {
-          const response = await fetch(`http://localhost:5000/messages?email=${storedUser.email}`);
+          const response = await fetch(buildApiUrl(`${apiRoutes.user.messages}?email=${encodeURIComponent(storedUser.email)}`));
           if (response.ok) {
             const data = await response.json();
             setConversations(data);
@@ -253,10 +258,10 @@ export const Profile = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const storedUser = JSON.parse(localStorage.getItem('user'));
+      const storedUser = getStoredUser();
       if (storedUser) {
         try {
-          const response = await fetch(`http://localhost:5000/user?email=${storedUser.email}`);
+          const response = await fetch(buildApiUrl(`${apiRoutes.user.profile}?email=${encodeURIComponent(storedUser.email)}`));
           if (response.ok) {
             const data = await response.json();
             setUser(data);
@@ -276,7 +281,7 @@ export const Profile = () => {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/update-profile', {
+      const response = await fetch(buildApiUrl(apiRoutes.user.updateProfile), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email, ...formData }),
@@ -284,7 +289,7 @@ export const Profile = () => {
       const data = await response.json();
       if (response.ok) {
         setUser(data.user);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        storeUser(data.user);
         alert("Profile updated successfully!");
       } else {
         alert("Failed to update profile.");

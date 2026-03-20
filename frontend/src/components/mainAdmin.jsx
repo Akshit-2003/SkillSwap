@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
+import { buildApiUrl } from '../api';
+import { apiRoutes } from '../routes/apiRoutes';
+import { clearStoredUser, getStoredUser } from '../utils/auth';
 
 // --- Styled Components for Dashboard ---
 const SidebarItem = ({ icon, label, to, active, badgeCount = 0 }) => {
@@ -343,14 +346,21 @@ const SuperAdmin = () => {
   // Mock Data for Chart
   const userGrowthData = [20, 35, 45, 50, 65, 75, 85, 90, 80, 95];
 
+  useEffect(() => {
+    const user = getStoredUser();
+    if (!user || (user.role !== 'Main Admin' && user.role !== 'Super Admin')) {
+      navigate('/admin/login');
+    }
+  }, [navigate]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
       const [usersRes, statsRes, skillsRes, teachersRes] = await Promise.all([
-        fetch('http://localhost:5000/get-all-users'),
-        fetch('http://localhost:5000/get-platform-stats'),
-        fetch('http://localhost:5000/get-all-skills'),
-        fetch('http://localhost:5000/get-teacher-admins')
+        fetch(buildApiUrl(apiRoutes.admin.users)),
+        fetch(buildApiUrl(apiRoutes.admin.stats)),
+        fetch(buildApiUrl(apiRoutes.platform.skills)),
+        fetch(buildApiUrl(apiRoutes.admin.teachers))
       ]);
 
       const usersData = await usersRes.json();
@@ -377,14 +387,14 @@ const SuperAdmin = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    clearStoredUser();
     navigate('/admin/login');
   };
 
   const handleRemoveUser = async (userId) => {
     if (window.confirm('Are you sure you want to permanently delete this user? This action cannot be undone.')) {
       try {
-        const response = await fetch(`http://localhost:5000/remove-user/${userId}`, { method: 'DELETE' });
+        const response = await fetch(buildApiUrl(apiRoutes.admin.removeUser(userId)), { method: 'DELETE' });
         if (response.ok) {
           alert('User removed successfully.');
           fetchData(); // Re-fetch all data to update lists and stats
@@ -402,7 +412,7 @@ const SuperAdmin = () => {
   const handleRegisterTeacher = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/register-teacher-admin', {
+      const response = await fetch(buildApiUrl(apiRoutes.teacher.register), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(teacherForm),
@@ -425,7 +435,7 @@ const SuperAdmin = () => {
   const handleAddGlobalSkill = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/add-global-skill', {
+      const response = await fetch(buildApiUrl(apiRoutes.admin.skills), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(skillForm),
@@ -453,7 +463,7 @@ const SuperAdmin = () => {
     e.preventDefault();
     try {
       // Using the existing standard user registration route
-      const response = await fetch('http://localhost:5000/register', {
+      const response = await fetch(buildApiUrl(apiRoutes.auth.register), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userForm),
@@ -520,6 +530,7 @@ const SuperAdmin = () => {
 
         {/* Tables Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
+          
           {/* Recent Users Table */}
           <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -527,6 +538,24 @@ const SuperAdmin = () => {
               <button onClick={() => navigate('/super-admin/user-management')} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }} style={{ background: 'transparent', border: '1px solid #374151', color: '#9ca3af', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s ease' }}>View All</button>
             </div>
             {/* Table content here */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: '#d1d5db' }}>
+              <thead>
+                <tr style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid #374151' }}>
+                  <th style={{ padding: '12px' }}>Name</th>
+                  <th style={{ padding: '12px' }}>Email</th>
+                  <th style={{ padding: '12px' }}>Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allUsers.slice(0, 5).map(user => (
+                  <tr key={user._id} style={{ borderBottom: '1px solid #374151' }}>
+                    <td style={{ padding: '12px' }}>{user.name}</td>
+                    <td style={{ padding: '12px' }}>{user.email}</td>
+                    <td style={{ padding: '12px' }}>{user.role || 'User'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {/* Swap Requests Table */}

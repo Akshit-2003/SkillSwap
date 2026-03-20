@@ -62,7 +62,7 @@ const Home = () => {
             <Link to="/register" className="btn-primary" style={{ textDecoration: 'none', padding: '0.8rem 2rem', borderRadius: '8px' }}>
               Start Swapping
             </Link>
-            <Link to="/login" className="btn-outline">
+            <Link to="/login" className="btn-outline" style={{ textDecoration: 'none', padding: '0.8rem 2rem', borderRadius: '8px' }}>
               Login
             </Link>
           </div>
@@ -285,6 +285,7 @@ const Home = () => {
           </div>
         </div>
       </footer>
+
     </div>
   );
 };
