@@ -95,6 +95,18 @@ const TeacherAdmin = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const user = getStoredUser();
+      const isSuper = user?.role === 'Main Admin' || user?.role === 'Super Admin';
+      const teacherSkills = user?.skillsOffered || [];
+
+      // Helper logic to filter specific skills for Teacher Admins
+      const isRelevant = (skillString) => {
+        if (isSuper || teacherSkills.length === 0) return true; // Super admins see everything
+        if (!skillString) return false;
+        const target = skillString.toLowerCase();
+        return teacherSkills.some(ts => target.includes(ts.toLowerCase()) || ts.toLowerCase().includes(target));
+      };
+
       const [pendingRes, skillsRes, usersRes, swapsRes, ratingsRes, reportsRes] = await Promise.all([
         fetch(buildApiUrl(apiRoutes.teacher.skillRequests)),
         fetch(buildApiUrl(apiRoutes.platform.skills)),
@@ -113,12 +125,24 @@ const TeacherAdmin = () => {
         reportsRes.json()
       ]);
 
-      if (pendingRes.ok) setPendingRequests(pendingData);
-      if (skillsRes.ok) setAllSkills(skillsData);
-      if (usersRes.ok) setAllUsers(usersData);
-      if (swapsRes.ok) setSwapRecords(swapsData);
-      if (ratingsRes.ok) setRatingRecords(ratingsData);
-      if (reportsRes.ok) setReportRecords(reportsData);
+      if (pendingRes.ok) {
+        const data = Array.isArray(pendingData) ? pendingData : [];
+        setPendingRequests(data.filter(req => isRelevant(req.skillName)));
+      }
+      if (skillsRes.ok) {
+        const data = Array.isArray(skillsData) ? skillsData : [];
+        setAllSkills(data.filter(s => isRelevant(s.skillName || s.skill)));
+      }
+      if (usersRes.ok) setAllUsers(Array.isArray(usersData) ? usersData : []);
+      if (swapsRes.ok) {
+        const data = Array.isArray(swapsData) ? swapsData : [];
+        setSwapRecords(data.filter(swap => isRelevant(swap.requestedSkill)));
+      }
+      if (ratingsRes.ok) {
+        const data = Array.isArray(ratingsData) ? ratingsData : [];
+        setRatingRecords(data.filter(rating => isRelevant(rating.skillTaught)));
+      }
+      if (reportsRes.ok) setReportRecords(Array.isArray(reportsData) ? reportsData : []);
     } catch (error) {
       console.error('Teacher admin fetch error:', error);
     } finally {
@@ -138,7 +162,7 @@ const TeacherAdmin = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providerId: request.providerId, skillName: request.skillName })
       });
-      
+
       let data;
       try {
         data = await response.json();
@@ -150,7 +174,7 @@ const TeacherAdmin = () => {
         alert(data.message || data.error || 'Failed to approve skill');
         return;
       }
-      
+
       alert('Skill approved successfully');
       setShowVideoModal(false);
       setShowQuizModal(false);
@@ -170,7 +194,7 @@ const TeacherAdmin = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providerId: request.providerId, skillName: request.skillName })
       });
-      
+
       let data;
       try {
         data = await response.json();
@@ -182,7 +206,7 @@ const TeacherAdmin = () => {
         alert(data.message || data.error || 'Failed to reject skill');
         return;
       }
-      
+
       alert('Skill rejected');
       setShowVideoModal(false);
       setShowQuizModal(false);
@@ -221,44 +245,54 @@ const TeacherAdmin = () => {
 
   const verifiedSkills = allSkills.filter((skill) => skill.status === 'Verified');
 
-  const OverviewPage = () => (
-    <PageContainer title="Moderator and Verification Portal" subtitle="Verify user skills, monitor active swaps, and track post-session ratings.">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        <StatCard title="Active Swaps" value={swapRecords.length} color="#10b981" />
-        <StatCard title="Flagged Users" value={ratingRecords.filter((item) => item.status === 'Flagged').length} color="#ef4444" />
-        <StatCard title="Pending Approvals" value={pendingRequests.length} color="#f59e0b" />
-        <StatCard title="Verified Skills" value={verifiedSkills.length} color="#646cff" />
-      </div>
+  const OverviewPage = () => {
+    const user = getStoredUser();
+    const isSuper = user?.role === 'Main Admin' || user?.role === 'Super Admin';
 
-      <div style={{ background: '#1f2937', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e5e7eb', fontSize: '1.2rem' }}>Recent Swaps Monitored</h3>
-          <Link to="/admin/swaps" style={{ color: '#10b981', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '600' }}>View All</Link>
+    return (
+      <PageContainer title="Moderator and Verification Portal" subtitle="Verify user skills, monitor active swaps, and track post-session ratings.">
+        {!isSuper && (
+          <div style={{ marginBottom: '1.5rem', padding: '12px 16px', background: 'rgba(100,108,255,0.1)', borderLeft: '4px solid #646cff', borderRadius: '8px', color: '#93c5fd', fontSize: '0.95rem' }}>
+            <strong>🎯 Your Moderated Categories:</strong> {user?.skillsOffered?.join(', ') || 'All Data'} (Filtering records based on your expertise)
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+          <StatCard title="Active Swaps" value={swapRecords.length} color="#10b981" />
+          <StatCard title="Flagged Users" value={ratingRecords.filter((item) => item.status === 'Flagged').length} color="#ef4444" />
+          <StatCard title="Pending Approvals" value={pendingRequests.length} color="#f59e0b" />
+          <StatCard title="Verified Skills" value={verifiedSkills.length} color="#646cff" />
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', color: '#9ca3af', background: 'rgba(255,255,255,0.05)' }}>
-                <th style={{ padding: '16px' }}>User A</th>
-                <th style={{ padding: '16px' }}>User B</th>
-                <th style={{ padding: '16px' }}>Swapping</th>
-              </tr>
-            </thead>
-            <tbody>
-              {swapRecords.slice(0, 3).map((swap) => (
-                <tr key={swap._id}>
-                  <TableCell><span style={{ fontWeight: '500', color: '#fff' }}>{swap.requesterName}</span></TableCell>
-                  <TableCell>{swap.matchedProviderName || 'Pending Match'}</TableCell>
-                  <TableCell>{swap.requestedSkill}</TableCell>
+        <div style={{ background: '#1f2937', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h3 style={{ margin: 0, color: '#e5e7eb', fontSize: '1.2rem' }}>Recent Swaps Monitored</h3>
+            <Link to="/admin/swaps" style={{ color: '#10b981', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '600' }}>View All</Link>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: '#9ca3af', background: 'rgba(255,255,255,0.05)' }}>
+                  <th style={{ padding: '16px' }}>User A</th>
+                  <th style={{ padding: '16px' }}>User B</th>
+                  <th style={{ padding: '16px' }}>Swapping</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {swapRecords.slice(0, 3).map((swap) => (
+                  <tr key={swap._id}>
+                    <TableCell><span style={{ fontWeight: '500', color: '#fff' }}>{swap.requesterName}</span></TableCell>
+                    <TableCell>{swap.matchedProviderName || 'Pending Match'}</TableCell>
+                    <TableCell>{swap.requestedSkill}</TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    </PageContainer>
-  );
+      </PageContainer>
+    );
+  };
 
   const VerificationPage = () => (
     <PageContainer title="Skill Approvals and Proofs" subtitle="Conduct video checks, send quizzes, or review certificates to verify users.">
@@ -272,7 +306,7 @@ const TeacherAdmin = () => {
           {pendingRequests.map((request) => {
             const proofsMatch = request.rawSkill?.match(/\[Pending Approval:\s*(.*?)\]/i);
             const proofs = proofsMatch ? proofsMatch[1].split(',').map((item) => item.trim()) : [];
-            
+
             const certProof = proofs.find(p => p.startsWith('Certificate'));
             const hasCertificate = !!certProof;
             let certUrl = '';
@@ -345,12 +379,12 @@ const TeacherAdmin = () => {
             <p style={{ margin: '0 0 20px 0', color: '#9ca3af', fontSize: '1rem' }}>
               Testing <strong style={{ color: '#fff' }}>{selectedRequest?.skillName}</strong> skills for {selectedRequest?.providerName}.
             </p>
-            
+
             <div style={{ flex: 1, background: '#000', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '10px 0', border: '2px solid #374151', color: '#646cff', position: 'relative' }}>
               <span style={{ fontSize: '4rem', marginBottom: '1rem' }}>📹</span>
               <span style={{ fontSize: '1.2rem', animation: 'pulse 2s infinite' }}>Waiting for user to join...</span>
             </div>
-            
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #374151' }}>
               <div style={{ color: '#ef4444', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem' }}>
                 <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
@@ -381,15 +415,15 @@ const TeacherAdmin = () => {
             {/* Document Preview Area */}
             <div style={{ flex: 1, background: '#000', borderRadius: '12px', border: '1px solid #374151', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', minHeight: '400px', position: 'relative' }}>
               {selectedRequest?.certUrl ? (
-                <iframe 
-                  src={selectedRequest.certUrl} 
-                  title="Certificate Document" 
-                  style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} 
+                <iframe
+                  src={selectedRequest.certUrl}
+                  title="Certificate Document"
+                  style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }}
                 />
               ) : (
                 <p style={{ color: '#9ca3af' }}>No document found or invalid format.</p>
               )}
-              
+
               {/* Overlay Document Info & Download */}
               <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(31, 41, 55, 0.9)', padding: '15px 25px', borderRadius: '12px', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', gap: '20px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)' }}>
                 <div>
@@ -503,7 +537,7 @@ const TeacherAdmin = () => {
               <tr key={row._id}>
                 <TableCell><strong style={{ color: '#fff' }}>{row.teacherName}</strong></TableCell>
                 <TableCell>{row.skillTaught}</TableCell>
-                <TableCell>{row.rating}</TableCell>
+                <TableCell>{typeof row.rating === 'number' ? row.rating.toFixed(1) : row.rating}</TableCell>
                 <TableCell><span style={{ color: row.status === 'Flagged' ? '#ef4444' : '#d1d5db' }}>{row.complaint || 'None'}</span></TableCell>
                 <TableCell>
                   <button
@@ -553,16 +587,20 @@ const TeacherAdmin = () => {
 
   const UserLookupPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
-    const filteredUsers = allUsers.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredUsers = allUsers.filter(u => {
+      const n = u.name || '';
+      const e = u.email || '';
+      return n.toLowerCase().includes(searchTerm.toLowerCase()) || e.toLowerCase().includes(searchTerm.toLowerCase());
+    });
 
     return (
       <PageContainer title="User Lookup" subtitle="Search and review user profiles, skills, and platform history.">
         <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
-          <input 
-            placeholder="Search by name or email..." 
-            value={searchTerm} 
-            onChange={e => setSearchTerm(e.target.value)} 
-            style={{ width: '100%', maxWidth: '400px', padding: '12px 16px', background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', outline: 'none' }} 
+          <input
+            placeholder="Search by name or email..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{ width: '100%', maxWidth: '400px', padding: '12px 16px', background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', outline: 'none' }}
           />
         </div>
         <div style={{ background: '#1f2937', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
@@ -598,26 +636,26 @@ const TeacherAdmin = () => {
 
   const ModerationRulesPage = () => (
     <PageContainer title="Moderation Guidelines" subtitle="Platform rules and standard operating procedures for Teacher Admins.">
-       <div style={{ display: 'grid', gap: '1.5rem' }}>
-         <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', borderLeft: '4px solid #10b981', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-           <h3 style={{ marginTop: 0, color: '#10b981' }}>1. Skill Verification</h3>
-           <p style={{ color: '#d1d5db', lineHeight: 1.6, margin: 0 }}>Always cross-reference uploaded certificates with official issuers. If a user selects "Live Video Interaction", ensure a minimum of 5 conceptual questions are asked to verify proficiency before approving the skill.</p>
-         </div>
-         <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', borderLeft: '4px solid #f59e0b', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-           <h3 style={{ marginTop: 0, color: '#f59e0b' }}>2. Handling Bad Ratings</h3>
-           <p style={{ color: '#d1d5db', lineHeight: 1.6, margin: 0 }}>If a user receives a rating below 3.0, it gets flagged. Review the complaint log. If it involves abusive behavior, escalate to Main Admin immediately. If it's a teaching quality issue, issue a platform warning.</p>
-         </div>
-         <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', borderLeft: '4px solid #ef4444', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-           <h3 style={{ marginTop: 0, color: '#ef4444' }}>3. Dispute Resolution</h3>
-           <p style={{ color: '#d1d5db', lineHeight: 1.6, margin: 0 }}>In case of no-shows during a scheduled swap, verify the chat logs. Refund the learning credit to the innocent party. Repeat offenders must be reported to the Main Admin.</p>
-         </div>
-       </div>
+      <div style={{ display: 'grid', gap: '1.5rem' }}>
+        <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', borderLeft: '4px solid #10b981', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <h3 style={{ marginTop: 0, color: '#10b981' }}>1. Skill Verification</h3>
+          <p style={{ color: '#d1d5db', lineHeight: 1.6, margin: 0 }}>Always cross-reference uploaded certificates with official issuers. If a user selects "Live Video Interaction", ensure a minimum of 5 conceptual questions are asked to verify proficiency before approving the skill.</p>
+        </div>
+        <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', borderLeft: '4px solid #f59e0b', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <h3 style={{ marginTop: 0, color: '#f59e0b' }}>2. Handling Bad Ratings</h3>
+          <p style={{ color: '#d1d5db', lineHeight: 1.6, margin: 0 }}>If a user receives a rating below 3.0, it gets flagged. Review the complaint log. If it involves abusive behavior, escalate to Main Admin immediately. If it's a teaching quality issue, issue a platform warning.</p>
+        </div>
+        <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', borderLeft: '4px solid #ef4444', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <h3 style={{ marginTop: 0, color: '#ef4444' }}>3. Dispute Resolution</h3>
+          <p style={{ color: '#d1d5db', lineHeight: 1.6, margin: 0 }}>In case of no-shows during a scheduled swap, verify the chat logs. Refund the learning credit to the innocent party. Repeat offenders must be reported to the Main Admin.</p>
+        </div>
+      </div>
     </PageContainer>
   );
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#111827', color: '#fff', fontFamily: "'Inter', sans-serif" }}>
-      
+
       {/* Left Sidebar */}
       <div className="admin-sidebar" style={{ width: '260px', background: '#1f2937', borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', position: 'fixed', height: '100%', zIndex: 10, overflowY: 'auto' }}>
         <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
@@ -629,11 +667,11 @@ const TeacherAdmin = () => {
           <SidebarItem to="/admin/overview" label="Dashboard" icon="📊" active={location.pathname.endsWith('/overview') || location.pathname.endsWith('/admin')} />
           <SidebarItem to="/admin/verifications" label="Skill Approvals" icon="✅" active={location.pathname.includes('/verifications')} badgeCount={pendingRequests.length} />
           <SidebarItem to="/admin/swaps" label="Monitor Swaps" icon="🔄" active={location.pathname.includes('/swaps')} />
-          
+
           <p style={{ padding: '0 20px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#6b7280', fontWeight: '600', margin: '20px 0 8px', letterSpacing: '0.5px' }}>Quality Control</p>
           <SidebarItem to="/admin/ratings" label="Ratings & Complaints" icon="⭐" active={location.pathname.includes('/ratings')} />
           <SidebarItem to="/admin/users" label="User Lookup" icon="🔍" active={location.pathname.includes('/users')} />
-          
+
           <p style={{ padding: '0 20px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#6b7280', fontWeight: '600', margin: '20px 0 8px', letterSpacing: '0.5px' }}>System</p>
           <SidebarItem to="/admin/guidelines" label="Moderation Rules" icon="📜" active={location.pathname.includes('/guidelines')} />
           <SidebarItem to="/admin/reports" label="Escalations" icon="📄" active={location.pathname.includes('/reports')} />

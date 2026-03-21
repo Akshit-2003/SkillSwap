@@ -15,16 +15,20 @@ import TeacherAdmin from './components/TeacherAdmin';
 import SuperAdmin from './components/mainAdmin';
 import AdminLogin from './components/AdminLogin';
 import SuperAdminRegister from './components/SuperAdminRegister';
+import VerifierApplicationForm from './components/VerifierApplicationForm';
 import ProtectedRoute from './components/ProtectedRoute';
 import { clearStoredUser, getStoredUser } from './utils/auth';
+import { buildApiUrl } from './api';
 
 function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [credits, setCredits] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const notificationRef = useRef(null);
+  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     const updateCredits = () => {
@@ -41,6 +45,7 @@ function Navbar() {
   useEffect(() => {
     setIsMobileMenuOpen(false);
     setShowNotifications(false);
+    setShowProfileMenu(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -53,6 +58,26 @@ function Navbar() {
     document.addEventListener('pointerdown', handleOutsideClick, true);
     return () => document.removeEventListener('pointerdown', handleOutsideClick, true);
   }, []);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      const parsedUser = getStoredUser();
+      if (parsedUser) {
+        try {
+          const response = await fetch(buildApiUrl(`/api/user/notifications?email=${encodeURIComponent(parsedUser.email)}`));
+          if (response.ok) {
+            const data = await response.json();
+            setNotifications(data);
+          }
+        } catch (e) {
+          console.error("Failed to fetch notifications", e);
+        }
+      }
+    };
+    fetchNotifications();
+    const intervalId = setInterval(fetchNotifications, 5000); // 5 sec real-time polling
+    return () => clearInterval(intervalId);
+  }, [location.pathname]);
 
   const isHome = location.pathname === '/';
   const isProduct = location.pathname.startsWith('/product');
@@ -101,43 +126,54 @@ function Navbar() {
           <div
             ref={notificationRef}
             className="notification-wrapper"
-            onClick={(event) => {
-              setShowNotifications((open) => !open);
-            }}
+            onMouseEnter={() => setShowNotifications(true)}
+            onMouseLeave={() => setShowNotifications(false)}
           >
             <div className="notification-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
             </div>
-            <span className="notification-badge">3</span>
+            {notifications.length > 0 && notifications[0].title !== 'All caught up! ✨' && (
+              <span className="notification-badge">{notifications.length}</span>
+            )}
             {showNotifications && (
               <div className="notification-dropdown">
                 <div className="notification-header">Notifications</div>
-                <div className="notification-item">
-                  <strong>New Match</strong>
-                  <p>Sarah matched with you</p>
+                {notifications.map((notif, idx) => (
+                  <div className="notification-item" key={idx}>
+                    <strong>{notif.title}</strong>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#9ca3af' }}>{notif.desc}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div
+            className="profile-wrapper"
+            onMouseEnter={() => setShowProfileMenu(true)}
+            onMouseLeave={() => setShowProfileMenu(false)}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+          >
+            <div
+              className="avatar"
+              style={{ width: '35px', height: '35px', background: getStoredUser()?.avatar ? `url(${buildApiUrl(getStoredUser().avatar.replace(/\\/g, '/'))}) center/cover` : 'linear-gradient(135deg, #646cff, #bc13fe)', fontSize: '0.9rem', cursor: 'pointer', marginRight: 0 }}
+            >
+              {!getStoredUser()?.avatar && (getStoredUser()?.name ? getStoredUser().name.charAt(0).toUpperCase() : 'U')}
+            </div>
+            {showProfileMenu && (
+              <div className="notification-dropdown" style={{ width: '220px' }}>
+                <div className="notification-header" style={{ padding: '15px' }}>
+                  <strong style={{ display: 'block', color: '#fff', fontSize: '1rem' }}>{getStoredUser()?.name || 'User'}</strong>
+                  <span style={{ color: '#aaa', fontSize: '0.8rem', fontWeight: 'normal' }}>{getStoredUser()?.email}</span>
                 </div>
-                <div className="notification-item">
-                  <strong>Message</strong>
-                  <p>Alex: Hey, are we still on?</p>
+                <div className="notification-item" onClick={() => navigate('/dashboard/profile')}>
+                  <strong>⚙️ Profile Settings</strong>
                 </div>
-                <div className="notification-item">
-                  <strong>System</strong>
-                  <p>Profile updated successfully</p>
+                <div className="notification-item" onClick={() => { clearStoredUser(); navigate('/'); }}>
+                  <strong style={{ color: '#ff4d4d' }}>🚪 Logout</strong>
                 </div>
               </div>
             )}
           </div>
-          <div className="avatar" style={{ width: '35px', height: '35px', background: 'linear-gradient(135deg, #646cff, #bc13fe)', fontSize: '0.9rem', cursor: 'pointer', marginRight: 0 }}>Me</div>
-          <button
-            onClick={() => {
-              clearStoredUser();
-              navigate('/');
-            }}
-            className="btn-outline"
-            style={{ padding: '0.5rem 1.2rem', fontSize: '0.9rem', borderColor: '#ff4d4d', color: '#ff4d4d' }}
-          >
-            Logout
-          </button>
         </div>
       </nav>
     );
@@ -202,6 +238,9 @@ function Navbar() {
         </div>
       </div>
       <div className={`nav-group nav-group-secondary ${isMobileMenuOpen ? 'nav-group-open' : ''}`} style={{ alignItems: 'center' }}>
+        <Link to="/apply-verifier" style={{ textDecoration: 'none', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.5)', background: 'rgba(16, 185, 129, 0.1)', padding: '0.5rem 1.2rem', borderRadius: '30px', fontSize: '0.9rem', marginRight: '15px', fontWeight: '600', transition: 'all 0.2s' }}>
+          🛡️ Become a Verifier
+        </Link>
         <Link to="/admin/login" style={{ textDecoration: 'none', color: '#9ca3af', fontSize: '0.85rem', marginRight: '15px' }}>
           Admin
         </Link>
@@ -227,6 +266,7 @@ function App() {
         <Route path="/dashboard/messages" element={<ProtectedRoute allowedRoles={['User']}><Messages /></ProtectedRoute>} />
         <Route path="/dashboard/profile" element={<ProtectedRoute allowedRoles={['User']}><Profile /></ProtectedRoute>} />
         <Route path="/dashboard/find-skills" element={<ProtectedRoute allowedRoles={['User']}><FindSkills /></ProtectedRoute>} />
+        <Route path="/apply-verifier" element={<VerifierApplicationForm />} />
         <Route path="/community" element={<Community />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/super-admin/register" element={<SuperAdminRegister />} />

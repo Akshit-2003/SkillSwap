@@ -155,6 +155,16 @@ const PieChart = ({ data, title }) => {
           transition: 'transform 0.1s',
           opacity: progress
         }}></div>
+        <div style={{ perspective: '800px', paddingBottom: '15px' }}>
+          <div style={{
+            width: '150px', height: '150px', borderRadius: '50%',
+            background: gradientString,
+            transform: `rotateX(55deg) scale(${0.8 + 0.2 * progress})`,
+            boxShadow: '0 1px 0 #111827, 0 2px 0 #111827, 0 3px 0 #111827, 0 4px 0 #111827, 0 5px 0 #111827, 0 6px 0 #111827, 0 7px 0 #111827, 0 8px 0 #111827, 0 9px 0 #111827, 0 10px 0 #111827, 0 20px 20px rgba(0,0,0,0.6)',
+            transition: 'transform 0.1s',
+            opacity: progress
+          }}></div>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', opacity: progress, transition: 'opacity 1s ease' }}>
           {data.map(item => (
             <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -305,6 +315,14 @@ const SuperAdmin = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [allSkills, setAllSkills] = useState([]);
   const [allTeachers, setAllTeachers] = useState([]);
+  const [verifierApps, setVerifierApps] = useState([]);
+  const [allSessions, setAllSessions] = useState([]);
+  const [allRatings, setAllRatings] = useState([]);
+  const [allTickets, setAllTickets] = useState([]);
+  const [allLogs, setAllLogs] = useState([]);
+  const [allAnnouncements, setAllAnnouncements] = useState([]);
+  const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '' });
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showTeacherModal, setShowTeacherModal] = useState(false);
@@ -326,23 +344,6 @@ const SuperAdmin = () => {
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
 
-  // Mock Data for Tables
-  const recentRequests = [
-    { id: 1, userA: 'Sarah Jenkins', userB: 'Mike Taylor', skill: 'React for Guitar', status: 'Pending' },
-    { id: 2, userA: 'John Doe', userB: 'Elena R.', skill: 'Python for Spanish', status: 'Active' },
-  ];
-  const mockReviews = [
-    { id: 1, user: 'Alice', teacher: 'Sarah Wilson', rating: 5, comment: 'Amazing teacher, very patient!' },
-    { id: 2, user: 'Bob', teacher: 'Mike Ross', rating: 4, comment: 'Good session, learned a lot.' },
-  ];
-
-  const mockTickets = [
-    { id: 'T-1001', user: 'User_120', subject: 'Video call issue', status: 'Urgent', date: '2023-10-25', description: 'My video call disconnected after 5 minutes and I lost my learning credit. Please refund it.' },
-    { id: 'T-1002', user: 'User_121', subject: 'Cannot update profile', status: 'Pending', date: '2023-10-24', description: 'Every time I try to save my new bio, it throws a 500 server error.' },
-    { id: 'T-1003', user: 'User_122', subject: 'Refund request', status: 'Resolved', date: '2023-10-22', description: 'The mentor never showed up to the session.' },
-    { id: 'T-1004', user: 'User_123', subject: 'Bug report', status: 'Resolved', date: '2023-10-20', description: 'Profile picture upload gets stuck at 99%.' }
-  ];
-
   // Mock Data for Chart
   const userGrowthData = [20, 35, 45, 50, 65, 75, 85, 90, 80, 95];
 
@@ -356,24 +357,39 @@ const SuperAdmin = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [usersRes, statsRes, skillsRes, teachersRes] = await Promise.all([
-        fetch(buildApiUrl(apiRoutes.admin.users)),
-        fetch(buildApiUrl(apiRoutes.admin.stats)),
+      const [usersRes, statsRes, skillsRes, teachersRes, verifierRes, sessionsRes, ratingsRes, ticketsRes, logsRes, announcementsRes] = await Promise.all([
+        fetch(buildApiUrl('/api/admin/users')),
+        fetch(buildApiUrl('/api/admin/stats')),
         fetch(buildApiUrl(apiRoutes.platform.skills)),
-        fetch(buildApiUrl(apiRoutes.admin.teachers))
+        fetch(buildApiUrl('/api/admin/teachers')),
+        fetch(buildApiUrl('/api/verifier/applications')),
+        fetch(buildApiUrl('/api/admin/sessions')),
+        fetch(buildApiUrl('/api/admin/ratings')),
+        fetch(buildApiUrl('/api/admin/tickets')),
+        fetch(buildApiUrl('/api/admin/logs')),
+        fetch(buildApiUrl('/api/admin/announcements'))
       ]);
 
       const usersData = await usersRes.json();
-      if (usersRes.ok) setAllUsers(usersData);
+      if (usersRes.ok) setAllUsers(Array.isArray(usersData) ? usersData : []);
 
       const statsData = await statsRes.json();
-      if (statsRes.ok) setStats(prev => ({ ...prev, ...statsData, activeSwaps: 154, completedSessions: 1205 }));
+      if (statsRes.ok) setStats(prev => ({ ...prev, ...statsData }));
 
       const skillsData = await skillsRes.json();
-      if (skillsRes.ok) setAllSkills(skillsData);
+      if (skillsRes.ok) setAllSkills(Array.isArray(skillsData) ? skillsData : []);
 
       const teachersData = await teachersRes.json();
-      if (teachersRes.ok) setAllTeachers(teachersData);
+      if (teachersRes.ok) setAllTeachers(Array.isArray(teachersData) ? teachersData : []);
+
+      const verifierData = await verifierRes.json();
+      if (verifierRes.ok) setVerifierApps(Array.isArray(verifierData) ? verifierData : []);
+
+      if (sessionsRes.ok) setAllSessions(await sessionsRes.json());
+      if (ratingsRes.ok) setAllRatings(await ratingsRes.json());
+      if (ticketsRes.ok) setAllTickets(await ticketsRes.json());
+      if (logsRes.ok) setAllLogs(await logsRes.json());
+      if (announcementsRes.ok) setAllAnnouncements(await announcementsRes.json());
 
     } catch (err) {
       console.error("Dashboard Fetch Error:", err);
@@ -394,7 +410,7 @@ const SuperAdmin = () => {
   const handleRemoveUser = async (userId) => {
     if (window.confirm('Are you sure you want to permanently delete this user? This action cannot be undone.')) {
       try {
-        const response = await fetch(buildApiUrl(apiRoutes.admin.removeUser(userId)), { method: 'DELETE' });
+        const response = await fetch(buildApiUrl(`/api/admin/users/${userId}`), { method: 'DELETE' });
         if (response.ok) {
           alert('User removed successfully.');
           fetchData(); // Re-fetch all data to update lists and stats
@@ -483,23 +499,79 @@ const SuperAdmin = () => {
     }
   };
 
+  const handleApproveRejectApp = async (id, status) => {
+    if (!window.confirm(`Are you sure you want to ${status.toLowerCase()} this application?`)) return;
+    try {
+      const response = await fetch(buildApiUrl(`/api/verifier/${id}/status`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (response.ok) {
+        alert(`Application ${status} successfully!`);
+        fetchData(); // Refresh lists
+      } else {
+        const data = await response.json();
+        alert(data.message || `Failed to update status`);
+      }
+    } catch (error) {
+      console.error('Error updating app:', error);
+    }
+  };
+
   const handleViewTicket = (ticket) => {
     setSelectedTicket(ticket);
     setShowTicketModal(true);
   };
 
+  const handleSendBroadcast = async () => {
+    if (!broadcastForm.title || !broadcastForm.message) return alert("Please fill both title and message fields.");
+    setIsBroadcasting(true);
+    try {
+      const res = await fetch(buildApiUrl('/api/admin/announcements'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(broadcastForm)
+      });
+      if (res.ok) {
+        alert('Broadcast sent! Every user has received this announcement in their messages.');
+        setBroadcastForm({ title: '', message: '' });
+        fetchData(); // Refresh recent broadcasts list
+      } else {
+        alert('Failed to send broadcast.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error sending broadcast');
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
   // Filter logic for Users
-  const filteredUsers = allUsers.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredUsers = allUsers.filter(u => {
+    const n = u.name || '';
+    const e = u.email || '';
+    return n.toLowerCase().includes(searchTerm.toLowerCase()) || e.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   // Filter logic for Skills
-  const filteredSkills = allSkills.filter(s => s.skillName.toLowerCase().includes(searchTerm.toLowerCase()) || s.providerName.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredSkills = allSkills.filter(s => {
+    const sName = s.skillName || s.skill || '';
+    const pName = s.providerName || s.name || 'Community';
+    return sName.toLowerCase().includes(searchTerm.toLowerCase()) || pName.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   // Filter logic for Teachers
-  const filteredTeachers = allTeachers.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.email.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredTeachers = allTeachers.filter(t => {
+    const n = t.name || '';
+    const e = t.email || '';
+    return n.toLowerCase().includes(searchTerm.toLowerCase()) || e.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   // --- Page Components ---
 
-  const DashboardOverview = () => {
+  const renderDashboardOverview = () => {
     const skillCategoryData = [
       { label: 'Development', percentage: 45, color: '#646cff' },
       { label: 'Design', percentage: 25, color: '#10b981' },
@@ -515,8 +587,8 @@ const SuperAdmin = () => {
           <StatCard title="Active Teachers" value={stats.totalTeacherAdmins || 0} icon="🎓" color="#34d399" />
           <StatCard title="Total Skills" value={stats.totalSkills || 0} icon="⚡" color="#f59e0b" />
           <StatCard title="Active Swaps" value={stats.activeSwaps || 0} icon="🔄" color="#10b981" />
-          <StatCard title="Pending Requests" value={recentRequests.filter(r => r.status === 'Pending').length} icon="🔔" color="#ef4444" />
-          <StatCard title="Completed Sessions" value={1205} icon="✅" color="#bc13fe" />
+          <StatCard title="Pending Requests" value={allSessions.filter(r => r.status === 'Pending').length} icon="🔔" color="#ef4444" />
+          <StatCard title="Completed Sessions" value={allSessions.filter(r => r.status === 'Completed').length} icon="✅" color="#bc13fe" />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
@@ -567,20 +639,51 @@ const SuperAdmin = () => {
           {/* Teacher Management Table */}
           <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
             <h3 style={{ margin: '0 0 1.5rem 0', color: '#e5e7eb', fontSize: '1.2rem' }}>Top Teachers</h3>
-            {/* Table content here */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: '#d1d5db' }}>
+              <thead>
+                <tr style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid #374151' }}>
+                  <th style={{ padding: '12px' }}>Learner</th>
+                  <th style={{ padding: '12px' }}>Mentor</th>
+                  <th style={{ padding: '12px' }}>Skill</th>
+                  <th style={{ padding: '12px' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allSessions.slice(0, 5).map(session => (
+                  <tr key={session._id} style={{ borderBottom: '1px solid #374151' }}>
+                    <td style={{ padding: '12px' }}>{session.learnerName}</td>
+                    <td style={{ padding: '12px' }}>{session.mentorName}</td>
+                    <td style={{ padding: '12px' }}>{session.skill}</td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', background: session.status === 'Completed' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: session.status === 'Completed' ? '#10b981' : '#f59e0b' }}>
+                        {session.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {/* Reviews Table */}
           <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
             <h3 style={{ margin: '0 0 1.5rem 0', color: '#e5e7eb', fontSize: '1.2rem' }}>Recent Reviews</h3>
-            {/* Table content here */}
+            {allRatings.slice(0, 5).map(r => (
+              <div key={r._id} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #374151' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <strong style={{ color: '#fff' }}>{r.teacherName} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '0.85rem' }}>({r.skillTaught})</span></strong>
+                  <span style={{ color: '#fbbf24' }}>{'★'.repeat(r.rating)}</span>
+                </div>
+                <p style={{ margin: '5px 0 0 0', color: '#d1d5db', fontSize: '0.9rem', fontStyle: 'italic' }}>"{r.complaint || 'No comment provided.'}"</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
     );
   };
 
-  const UserManagementPage = () => (
+  const renderUserManagementPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h2 style={{ color: '#e5e7eb', margin: 0 }}>User Management</h2>
@@ -616,7 +719,7 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const TeacherManagementPage = () => (
+  const renderTeacherManagementPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h2 style={{ color: '#e5e7eb', margin: 0 }}>Teacher Management</h2>
@@ -638,7 +741,7 @@ const SuperAdmin = () => {
                 <td style={{ padding: '16px' }}>{t.name}</td>
                 <td style={{ padding: '16px' }}>{t.email}</td>
                 <td style={{ padding: '16px' }}>{t.skillsOffered?.length || 0}</td>
-                <td style={{ padding: '16px', color: '#fbbf24', fontWeight: 'bold' }}>★ {t.rating || '4.8'}</td>
+                <td style={{ padding: '16px', color: '#fbbf24', fontWeight: 'bold' }}>★ {typeof t.rating === 'number' ? t.rating.toFixed(1) : (t.rating || '4.8')}</td>
               </tr>
             ))}
             {filteredTeachers.length === 0 && <tr><td colSpan="4" style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>No teachers found.</td></tr>}
@@ -648,7 +751,7 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const SkillManagementPage = () => (
+  const renderSkillManagementPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h2 style={{ color: '#e5e7eb', margin: 0 }}>Skill Management</h2>
@@ -670,14 +773,56 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const SwapRequestsPage = () => (
+  const renderVerifierApplicationsPage = () => (
+    <div style={{ animation: 'fadeInUp 0.5s ease' }}>
+      <h2 style={{ color: '#e5e7eb', marginBottom: '1.5rem' }}>Verifier Applications</h2>
+      <div style={{ background: '#1f2937', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: '#d1d5db' }}>
+          <thead>
+            <tr style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid #374151' }}>
+              <th style={{ padding: '16px' }}>Applicant</th>
+              <th style={{ padding: '16px' }}>Category</th>
+              <th style={{ padding: '16px' }}>Experience</th>
+              <th style={{ padding: '16px' }}>Proof</th>
+              <th style={{ padding: '16px' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {verifierApps.map(app => (
+              <tr key={app._id} style={{ borderBottom: '1px solid #374151' }}>
+                <td style={{ padding: '16px' }}>
+                  <strong style={{ display: 'block', color: '#fff' }}>{app.name || 'N/A'}</strong>
+                  <small style={{ color: '#9ca3af' }}>{app.email}</small>
+                </td>
+                <td style={{ padding: '16px' }}>{app.category}</td>
+                <td style={{ padding: '16px' }}>{app.experience} Years</td>
+                <td style={{ padding: '16px' }}>
+                  {app.resumeUrl && app.resumeUrl !== 'No file uploaded' ? (
+                    <a href={buildApiUrl(app.resumeUrl.replace(/\\/g, '/'))} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                      <button style={{ background: 'transparent', border: '1px solid #646cff', color: '#646cff', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}>View PDF</button>
+                    </a>
+                  ) : 'No Proof'}
+                </td>
+                <td style={{ padding: '16px', display: 'flex', gap: '8px' }}>
+                  <button onClick={() => handleApproveRejectApp(app._id, 'Approved')} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Approve</button>
+                  <button onClick={() => handleApproveRejectApp(app._id, 'Rejected')} style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}>Reject</button>
+                </td>
+              </tr>
+            ))}
+            {verifierApps.length === 0 && <tr><td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>No pending applications found.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderSwapRequestsPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <h2 style={{ color: '#e5e7eb', marginBottom: '1.5rem' }}>Active Swap Requests</h2>
       <div style={{ background: '#1f2937', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: '#d1d5db' }}>
           <thead>
             <tr style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid #374151' }}>
-              <th style={{ padding: '16px' }}>Request ID</th>
               <th style={{ padding: '16px' }}>User A (Learner)</th>
               <th style={{ padding: '16px' }}>User B (Mentor)</th>
               <th style={{ padding: '16px' }}>Target Skill</th>
@@ -685,14 +830,13 @@ const SuperAdmin = () => {
             </tr>
           </thead>
           <tbody>
-            {recentRequests.map((r, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid #374151' }}>
-                <td style={{ padding: '16px', color: '#646cff' }}>#REQ-00{r.id}</td>
-                <td style={{ padding: '16px' }}>{r.userA}</td>
-                <td style={{ padding: '16px' }}>{r.userB}</td>
+            {allSessions.map((r, i) => (
+              <tr key={r._id} style={{ borderBottom: '1px solid #374151' }}>
+                <td style={{ padding: '16px' }}>{r.learnerName}</td>
+                <td style={{ padding: '16px' }}>{r.mentorName}</td>
                 <td style={{ padding: '16px', fontWeight: '500' }}>{r.skill}</td>
                 <td style={{ padding: '16px' }}>
-                  <span style={{ padding: '4px 8px', background: r.status === 'Pending' ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)', color: r.status === 'Pending' ? '#f59e0b' : '#10b981', borderRadius: '4px', fontSize: '0.8rem', fontWeight: '600' }}>{r.status}</span>
+                  <span style={{ padding: '4px 8px', background: ['Pending', 'Scheduled'].includes(r.status) ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)', color: ['Pending', 'Scheduled'].includes(r.status) ? '#f59e0b' : '#10b981', borderRadius: '4px', fontSize: '0.8rem', fontWeight: '600' }}>{r.status}</span>
                 </td>
               </tr>
             ))}
@@ -702,22 +846,22 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const SessionsPage = () => (
+  const renderSessionsPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <h2 style={{ color: '#e5e7eb', marginBottom: '1.5rem' }}>Sessions / Meetings</h2>
       <div style={{ display: 'grid', gap: '1rem' }}>
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} style={{ background: '#1f2937', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {allSessions.length === 0 ? <p style={{ color: '#aaa' }}>No sessions found.</p> : allSessions.map((s, i) => (
+          <div key={s._id} style={{ background: '#1f2937', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
               <div style={{ width: '50px', height: '50px', background: 'rgba(100,108,255,0.1)', color: '#646cff', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📅</div>
               <div>
-                <h4 style={{ margin: '0 0 5px 0', color: '#fff', fontSize: '1.1rem' }}>React Deep Dive Session {i}</h4>
-                <p style={{ margin: 0, color: '#9ca3af', fontSize: '0.9rem' }}>Mentor: Sarah J. | Learner: Mike T.</p>
+                <h4 style={{ margin: '0 0 5px 0', color: '#fff', fontSize: '1.1rem' }}>{s.skill}</h4>
+                <p style={{ margin: 0, color: '#9ca3af', fontSize: '0.9rem' }}>Mentor: {s.mentorName} | Learner: {s.learnerName}</p>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: '0 0 5px 0', color: '#e5e7eb', fontWeight: '600' }}>Oct {20 + i}, 2023 • 10:00 AM</p>
-              <span style={{ color: i > 2 ? '#f59e0b' : '#10b981', fontSize: '0.85rem', fontWeight: 'bold' }}>{i > 2 ? 'Upcoming' : 'Completed'}</span>
+              <p style={{ margin: '0 0 5px 0', color: '#e5e7eb', fontWeight: '600' }}>{s.date} • {s.time}</p>
+              <span style={{ color: s.status === 'Completed' ? '#10b981' : '#f59e0b', fontSize: '0.85rem', fontWeight: 'bold' }}>{s.status}</span>
             </div>
           </div>
         ))}
@@ -725,7 +869,7 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const CreditManagementPage = () => (
+  const renderCreditManagementPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <h2 style={{ color: '#e5e7eb', marginBottom: '1.5rem' }}>Credit Management</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
@@ -740,7 +884,7 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const SupportTicketsPage = () => (
+  const renderSupportTicketsPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <h2 style={{ color: '#e5e7eb', marginBottom: '1.5rem' }}>Support Tickets</h2>
       <div style={{ background: '#1f2937', borderRadius: '12px', overflow: 'hidden' }}>
@@ -755,9 +899,9 @@ const SuperAdmin = () => {
             </tr>
           </thead>
           <tbody>
-            {mockTickets.map((ticket, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid #374151' }}>
-                <td style={{ padding: '16px', fontWeight: '500' }}>{ticket.id}</td>
+            {allTickets.length === 0 ? <tr><td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>No tickets raised yet.</td></tr> : allTickets.map((ticket, i) => (
+              <tr key={ticket._id} style={{ borderBottom: '1px solid #374151' }}>
+                <td style={{ padding: '16px', fontWeight: '500', color: '#646cff' }}>{ticket._id.substring(ticket._id.length - 6)}</td>
                 <td style={{ padding: '16px' }}>{ticket.user}</td>
                 <td style={{ padding: '16px' }}>{ticket.subject}</td>
                 <td style={{ padding: '16px' }}><span style={{ color: ticket.status === 'Urgent' ? '#ef4444' : (ticket.status === 'Pending' ? '#f59e0b' : '#10b981'), fontWeight: 'bold' }}>{ticket.status}</span></td>
@@ -770,7 +914,7 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const DisputesPage = () => (
+  const renderDisputesPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
       <div style={{ fontSize: '5rem', marginBottom: '1rem', opacity: 0.8 }}>⚖️</div>
       <h2 style={{ color: '#10b981', margin: '0 0 10px 0' }}>No Active Disputes</h2>
@@ -778,7 +922,7 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const ContentManagementPage = () => (
+  const renderContentManagementPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <h2 style={{ color: '#e5e7eb', marginBottom: '1.5rem' }}>Content Management</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
@@ -795,23 +939,23 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const AnnouncementsPage = () => (
+  const renderAnnouncementsPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <h2 style={{ color: '#e5e7eb', marginBottom: '1.5rem' }}>Platform Announcements</h2>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
         <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', height: 'fit-content' }}>
           <h3 style={{ margin: '0 0 1rem 0', color: '#fff' }}>Create New Broadcast</h3>
-          <input type="text" placeholder="Announcement Title" style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '8px', border: '1px solid #374151', background: '#111827', color: '#fff' }} />
-          <textarea placeholder="Message body..." rows="5" style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '8px', border: '1px solid #374151', background: '#111827', color: '#fff', resize: 'vertical' }}></textarea>
-          <button style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>Publish Now</button>
+          <input type="text" placeholder="Announcement Title" value={broadcastForm.title} onChange={e => setBroadcastForm({ ...broadcastForm, title: e.target.value })} style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '8px', border: '1px solid #374151', background: '#111827', color: '#fff' }} />
+          <textarea placeholder="Message body..." rows="5" value={broadcastForm.message} onChange={e => setBroadcastForm({ ...broadcastForm, message: e.target.value })} style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '8px', border: '1px solid #374151', background: '#111827', color: '#fff', resize: 'vertical' }}></textarea>
+          <button onClick={handleSendBroadcast} disabled={isBroadcasting} style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', padding: '12px', borderRadius: '8px', cursor: isBroadcasting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>{isBroadcasting ? 'Sending...' : 'Publish Now'}</button>
         </div>
         <div style={{ background: '#1f2937', padding: '24px', borderRadius: '12px' }}>
           <h3 style={{ margin: '0 0 1.5rem 0', color: '#fff' }}>Recent Broadcasts</h3>
-          {[1, 2].map((i) => (
-            <div key={i} style={{ padding: '20px', borderLeft: '4px solid #646cff', background: 'rgba(100,108,255,0.05)', marginBottom: '15px', borderRadius: '0 8px 8px 0' }}>
-              <strong style={{ color: '#fff', display: 'block', fontSize: '1.1rem', marginBottom: '5px' }}>{i === 1 ? 'Scheduled Maintenance Notice' : 'Welcome to the New UI'}</strong>
-              <p style={{ color: '#d1d5db', margin: '0 0 10px 0', fontSize: '0.95rem' }}>This is a placeholder for the actual announcement text sent out to all active users...</p>
-              <small style={{ color: '#9ca3af', fontWeight: 'bold' }}>Published on: Oct {20 - i}, 2023</small>
+          {allAnnouncements.length === 0 ? <p style={{ color: '#aaa' }}>No broadcasts sent yet.</p> : allAnnouncements.map((a, i) => (
+            <div key={a._id || i} style={{ padding: '20px', borderLeft: '4px solid #646cff', background: 'rgba(100,108,255,0.05)', marginBottom: '15px', borderRadius: '0 8px 8px 0' }}>
+              <strong style={{ color: '#fff', display: 'block', fontSize: '1.1rem', marginBottom: '5px' }}>{a.title}</strong>
+              <p style={{ color: '#d1d5db', margin: '0 0 10px 0', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>{a.message}</p>
+              <small style={{ color: '#9ca3af', fontWeight: 'bold' }}>Published on: {new Date(a.date).toLocaleString()}</small>
             </div>
           ))}
         </div>
@@ -819,7 +963,7 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const ReportsPage = () => (
+  const renderReportsPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <h2 style={{ color: '#e5e7eb', marginBottom: '1.5rem' }}>Reports & Analytics</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
@@ -835,7 +979,7 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const SettingsPage = () => (
+  const renderSettingsPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease', paddingBottom: '2rem' }}>
       <h2 style={{ color: '#e5e7eb', marginBottom: '1.5rem' }}>Settings & Configurations</h2>
 
@@ -897,15 +1041,15 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const FeedbackPage = () => (
+  const renderFeedbackPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <h2 style={{ color: '#e5e7eb', marginBottom: '1.5rem' }}>User Feedback & Reviews</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem' }}>
-        {mockReviews.map((r, i) => (
-          <div key={i} style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', position: 'relative' }}>
+        {allRatings.length === 0 ? <p style={{ color: '#aaa' }}>No reviews yet.</p> : allRatings.map((r) => (
+          <div key={r._id} style={{ background: '#1f2937', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <div>
-                <strong style={{ color: '#fff', display: 'block', fontSize: '1.1rem' }}>{r.user}</strong>
+                <strong style={{ color: '#fff', display: 'block', fontSize: '1.1rem' }}>{r.submittedByEmail}</strong>
                 <small style={{ color: '#9ca3af' }}>Reviewed: {r.teacher}</small>
               </div>
               <span style={{ color: '#fbbf24', fontSize: '1.2rem', letterSpacing: '2px' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
@@ -917,20 +1061,18 @@ const SuperAdmin = () => {
     </div>
   );
 
-  const SystemLogsPage = () => (
+  const renderSystemLogsPage = () => (
     <div style={{ animation: 'fadeInUp 0.5s ease' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h2 style={{ color: '#e5e7eb', margin: 0 }}>System Activity Logs</h2>
         <button style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #374151', color: '#d1d5db', borderRadius: '6px', cursor: 'pointer' }}>Export Logs</button>
       </div>
       <div style={{ background: '#0a0f18', padding: '24px', borderRadius: '12px', fontFamily: "'Fira Code', monospace", color: '#10b981', height: '60vh', overflowY: 'auto', border: '1px solid #1f2937', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)' }}>
-        <p style={{ margin: '5px 0' }}>[INFO] 2023-10-25 10:00:01 - Server container booted successfully.</p>
-        <p style={{ margin: '5px 0' }}>[INFO] 2023-10-25 10:05:22 - MongoDB connected.</p>
-        <p style={{ margin: '5px 0', color: '#f59e0b' }}>[WARN] 2023-10-25 10:15:05 - API rate limit warning for IP 192.168.1.1</p>
-        <p style={{ margin: '5px 0' }}>[INFO] 2023-10-25 10:30:11 - JWT Token issued for user "Akshit".</p>
-        <p style={{ margin: '5px 0', color: '#ef4444' }}>[ERROR] 2023-10-25 10:45:33 - Node Fetch failed: ETIMEDOUT connect to external mail service.</p>
-        <p style={{ margin: '5px 0' }}>[INFO] 2023-10-25 11:00:00 - Routine cron backup completed in 4.2s.</p>
-        <p style={{ margin: '5px 0', opacity: 0.5 }}>Waiting for new logs...</p>
+        {allLogs.length === 0 ? <p style={{ margin: '5px 0', opacity: 0.5 }}>Waiting for new logs...</p> : allLogs.map(log => (
+          <p key={log._id} style={{ margin: '5px 0', color: log.level === 'ERROR' ? '#ef4444' : (log.level === 'WARN' ? '#f59e0b' : '#10b981') }}>
+            [{log.level}] {new Date(log.timestamp).toLocaleString()} - {log.message}
+          </p>
+        ))}
       </div>
     </div>
   );
@@ -975,13 +1117,14 @@ const SuperAdmin = () => {
             <SidebarItem to="/super-admin/overview" label="Dashboard" icon="📊" active={location.pathname.includes('/overview') || location.pathname === '/super-admin' || location.pathname === '/super-admin/'} />
             <SidebarItem to="/super-admin/user-management" label="User Management" icon="👥" active={location.pathname.includes('/user-management')} />
             <SidebarItem to="/super-admin/teacher-management" label="Teacher Management" icon="🎓" active={location.pathname.includes('/teacher-management')} />
+            <SidebarItem to="/super-admin/verifier-apps" label="Verifier Applications" icon="📝" active={location.pathname.includes('/verifier-apps')} badgeCount={verifierApps.length} />
             <SidebarItem to="/super-admin/skill-management" label="Skill Management" icon="⚡" active={location.pathname.includes('/skill-management')} />
-            <SidebarItem to="/super-admin/swap-requests" label="Swap Requests" icon="🔄" active={location.pathname.includes('/swap-requests')} badgeCount={recentRequests.filter(r => r.status === 'Pending').length} />
+            <SidebarItem to="/super-admin/swap-requests" label="Swap Requests" icon="🔄" active={location.pathname.includes('/swap-requests')} badgeCount={allSessions.filter(r => r.status === 'Pending').length} />
             <SidebarItem to="/super-admin/sessions" label="Sessions / Meetings" icon="📅" active={location.pathname.includes('/sessions')} />
 
             <p style={{ padding: '0 20px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#6b7280', fontWeight: '600', margin: '20px 0 8px', letterSpacing: '0.5px' }}>Finance & Support</p>
             <SidebarItem to="/super-admin/credits" label="Credit Management" icon="💰" active={location.pathname.includes('/credits')} />
-            <SidebarItem to="/super-admin/support" label="Support Tickets" icon="🎫" active={location.pathname.includes('/support')} badgeCount={5} />
+            <SidebarItem to="/super-admin/support" label="Support Tickets" icon="🎫" active={location.pathname.includes('/support')} badgeCount={allTickets.filter(t => t.status === 'Pending').length} />
             <SidebarItem to="/super-admin/disputes" label="Disputes Handling" icon="⚖️" active={location.pathname.includes('/disputes')} />
 
             <p style={{ padding: '0 20px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#6b7280', fontWeight: '600', margin: '20px 0 8px', letterSpacing: '0.5px' }}>Content & Marketing</p>
@@ -1064,21 +1207,22 @@ const SuperAdmin = () => {
           <div style={{ padding: '30px', overflowY: 'auto' }}>
             <Routes>
               <Route path="/" element={<Navigate to="overview" replace />} />
-              <Route path="overview" element={<DashboardOverview />} />
-              <Route path="user-management" element={<UserManagementPage />} />
-              <Route path="teacher-management" element={<TeacherManagementPage />} />
-              <Route path="skill-management" element={<SkillManagementPage />} />
-              <Route path="swap-requests" element={<SwapRequestsPage />} />
-              <Route path="sessions" element={<SessionsPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="feedback" element={<FeedbackPage />} />
-              <Route path="logs" element={<SystemLogsPage />} />
-              <Route path="credits" element={<CreditManagementPage />} />
-              <Route path="support" element={<SupportTicketsPage />} />
-              <Route path="disputes" element={<DisputesPage />} />
-              <Route path="content" element={<ContentManagementPage />} />
-              <Route path="announcements" element={<AnnouncementsPage />} />
+              <Route path="overview" element={renderDashboardOverview()} />
+              <Route path="user-management" element={renderUserManagementPage()} />
+              <Route path="verifier-apps" element={renderVerifierApplicationsPage()} />
+              <Route path="teacher-management" element={renderTeacherManagementPage()} />
+              <Route path="skill-management" element={renderSkillManagementPage()} />
+              <Route path="swap-requests" element={renderSwapRequestsPage()} />
+              <Route path="sessions" element={renderSessionsPage()} />
+              <Route path="reports" element={renderReportsPage()} />
+              <Route path="settings" element={renderSettingsPage()} />
+              <Route path="feedback" element={renderFeedbackPage()} />
+              <Route path="logs" element={renderSystemLogsPage()} />
+              <Route path="credits" element={renderCreditManagementPage()} />
+              <Route path="support" element={renderSupportTicketsPage()} />
+              <Route path="disputes" element={renderDisputesPage()} />
+              <Route path="content" element={renderContentManagementPage()} />
+              <Route path="announcements" element={renderAnnouncementsPage()} />
             </Routes>
           </div>
 

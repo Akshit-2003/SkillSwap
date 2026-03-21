@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import API from '../api';
 import { apiRoutes } from '../routes/apiRoutes';
 import { getHomeRouteForUser, getStoredUser, storeUser } from '../utils/auth';
@@ -9,13 +9,16 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const from = location.state?.from?.pathname;
 
   useEffect(() => {
     const user = getStoredUser();
     if (user) {
-      navigate(getHomeRouteForUser(user));
+      navigate(from || getHomeRouteForUser(user));
     }
-  }, [navigate]);
+  }, [navigate, from]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -33,7 +36,7 @@ const Login = () => {
       }
       storeUser(data.user);
       alert('Login Successful!');
-      navigate(getHomeRouteForUser(data.user));
+      navigate(from || getHomeRouteForUser(data.user));
     } catch (error) {
       console.error('Error:', error);
       alert(error.response?.data?.message || 'Login Failed');

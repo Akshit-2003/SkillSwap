@@ -1,6 +1,16 @@
+# Dependencies
 node_modules/
+
+# Environment variables
 .env
-dist/
-build/
+
+# Build output
+frontend/dist/
+
+# Uploaded media files
+backend/uploads/
+
+# Logs & OS generated files
+npm-debug.log*
+yarn-error.log*
 .DS_Store
-uploads/

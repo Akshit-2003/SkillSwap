@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { buildApiUrl } from '../api';
 import { apiRoutes } from '../routes/apiRoutes';
 import { getStoredUser, storeUser } from '../utils/auth';
@@ -49,8 +49,24 @@ const Dashboard = () => {
     proofs: [],
     certificateFile: null
   });
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [activeSession, setActiveSession] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [classChat, setClassChat] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [dashData, setDashData] = useState({
+    upcomingSessions: [],
+    topMentors: [],
+    dailyChallenges: [],
+    recentActivities: [],
+    recommendedMatches: [],
+    studentReviews: [],
+    teachingSchedule: [],
+    learningJourney: [],
+    certificates: []
+  });
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -64,8 +80,16 @@ const Dashboard = () => {
             if (data.ratingCount === undefined) data.ratingCount = 12;
             setUser(data);
             storeUser(data);
+            window.dispatchEvent(new Event('user_updated')); // SYNC NAVBAR REALTIME
           } else {
             setUser(parsedUser);
+          }
+
+          // Fetch Real-time Dashboard Data
+          const dashResponse = await fetch(buildApiUrl(`/api/user/dashboard-data?email=${encodeURIComponent(parsedUser.email)}`));
+          if (dashResponse.ok) {
+              const dData = await dashResponse.json();
+              setDashData(dData);
           }
         } catch (error) {
           console.error("Failed to fetch user data:", error);
@@ -75,8 +99,34 @@ const Dashboard = () => {
         navigate('/login');
       }
     };
+
     fetchUser();
+    // Real-time Database Sync (Updates every 5 seconds)
+    const intervalId = setInterval(fetchUser, 5000);
+    return () => clearInterval(intervalId);
   }, [navigate]);
+
+  // Real-time synchronization for closing the video modal if the other person ends it
+  useEffect(() => {
+    if (showVideoModal && activeSession) {
+      const allSessions = [...(dashData.upcomingSessions || []), ...(dashData.teachingSchedule || [])];
+      const sessionStillActive = allSessions.find(s => s.id === activeSession.id);
+      
+      if (!sessionStillActive) {
+        // Session is no longer active in DB (meaning the other person ended it)
+        setShowVideoModal(false);
+        if (viewMode === 'learning') {
+          setRatingSession(activeSession);
+          setRatingValue(0);
+          setRatingComment('');
+          setShowRatingModal(true);
+          alert("The mentor has ended the class. Please rate your session.");
+        } else {
+          alert("The learner has ended the class. You earned 1 credit!");
+        }
+      }
+    }
+  }, [dashData, showVideoModal, activeSession, viewMode]);
 
   const handleOpenModal = (type) => {
     setModalType(type);
@@ -91,6 +141,23 @@ const Dashboard = () => {
     setIsVerifying(false);
     setShowModal(true);
   };
+
+  // Modal auto-open logic from other pages
+  useEffect(() => {
+    if (location.state?.openModal) {
+      const type = location.state.openModal;
+      setViewMode(type === 'offered' ? 'teaching' : 'learning');
+      setModalType(type);
+      setSkillForm({
+        name: '', category: 'Development', proficiency: 'Beginner',
+        description: '', proofs: [], certificateFile: null
+      });
+      setIsVerifying(false);
+      setShowModal(true);
+      // Clear the state so it doesn't reopen on page refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
 
   const handleProofToggle = (proof) => {
     setSkillForm(prev => {
@@ -140,6 +207,7 @@ const Dashboard = () => {
       if (response.ok) {
         setUser(data.user);
         storeUser(data.user);
+        window.dispatchEvent(new Event('user_updated')); // SYNC NAVBAR REALTIME
         setShowModal(false);
         alert("Verification request sent to Admin! Your skill is pending approval.");
       }
@@ -151,11 +219,101 @@ const Dashboard = () => {
     }
   };
 
-  const handleCompleteSession = (session) => {
-    setRatingValue(0);
-    setRatingComment('');
-    setRatingSession(session);
-    setShowRatingModal(true);
+  const handleApproveSession = async (sessionId) => {
+    try {
+      const response = await fetch(buildApiUrl('/api/user/approve-session'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      });
+      if (response.ok) {
+        alert('Session approved! A message has been sent to the learner.');
+        window.dispatchEvent(new Event('user_updated')); // refresh data
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleJoinVideo = async (session, isLearner) => {
+    // If learner is joining for the first time, mark as Active to notify mentor
+    if (isLearner && session.status === 'Scheduled') {
+      try {
+        await fetch(buildApiUrl('/api/user/join-session'), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: session.id })
+        });
+        window.dispatchEvent(new Event('user_updated')); // Trigger immediate refresh
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    setActiveSession(session);
+    setChatInput('');
+    setShowVideoModal(true);
+  };
+
+  // Real-time Live Chat Sync (every 2 seconds while modal is open)
+  useEffect(() => {
+    let chatInterval;
+    if (showVideoModal && activeSession) {
+      const fetchChat = async () => {
+        try {
+          const res = await fetch(buildApiUrl(`/api/user/session-chat/${activeSession.id}`));
+          if (res.ok) setClassChat(await res.json());
+        } catch (err) {
+          console.error("Chat fetch error:", err);
+        }
+      };
+      fetchChat();
+      chatInterval = setInterval(fetchChat, 2000);
+    }
+    return () => clearInterval(chatInterval);
+  }, [showVideoModal, activeSession]);
+
+  const handleSendChat = async (e) => {
+    if (e.key === 'Enter' && chatInput.trim() && activeSession) {
+      e.preventDefault();
+      const text = chatInput.trim();
+      setChatInput('');
+      try {
+        await fetch(buildApiUrl('/api/user/session-chat'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: activeSession.id, sender: user.name, text })
+        });
+        // Fetch immediately after sending to show our own msg instantly
+        const res = await fetch(buildApiUrl(`/api/user/session-chat/${activeSession.id}`));
+        if (res.ok) setClassChat(await res.json());
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleEndVideo = async () => {
+    if (!activeSession) return;
+    try {
+      await fetch(buildApiUrl('/api/user/end-session'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: activeSession.id })
+      });
+      setShowVideoModal(false);
+      window.dispatchEvent(new Event('user_updated')); // fetch updated credits
+
+      if (viewMode === 'learning') {
+        setRatingSession(activeSession);
+        setRatingValue(0);
+        setRatingComment('');
+        setShowRatingModal(true);
+      } else {
+        alert('Session completed! You earned 1 credit.');
+      }
+    } catch (err) {
+      console.error('End session error:', err);
+    }
   };
 
   const submitRating = async () => {
@@ -169,14 +327,22 @@ const Dashboard = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           submittedByEmail: user.email,
-          teacherName: ratingSession?.teacherName || 'Community Mentor',
-          teacherEmail: ratingSession?.teacherEmail || '',
-          skillTaught: ratingSession?.skillTaught || user.skillsWanted?.[0] || 'General Session',
+          teacherName: ratingSession?.mentorName || 'Community Mentor',
+          teacherEmail: ratingSession?.mentorEmail || '',
+          skillTaught: ratingSession?.title || user.skillsWanted?.[0] || 'General Session',
           rating: ratingValue,
           complaint: ratingComment
         })
       });
-      const data = await response.json();
+
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        throw new Error("Server returned an invalid HTML response. Backend route '/api/user/session-feedback' might be missing.");
+      }
+
       if (!response.ok) {
         alert(data.message || data.error || 'Failed to submit rating.');
         return;
@@ -184,12 +350,13 @@ const Dashboard = () => {
       if (data.teacher && data.teacher.email === user.email) {
         setUser(data.teacher);
         storeUser(data.teacher);
+        window.dispatchEvent(new Event('user_updated')); // SYNC NAVBAR REALTIME
       }
       alert(`Session completed! You rated it ${ratingValue} stars.`);
       setShowRatingModal(false);
     } catch (error) {
-      console.error('Session feedback error:', error);
-      alert('Could not connect to backend to submit the rating.');
+      console.error('Session feedback error:', error.message);
+      alert(error.message || 'Could not connect to backend to submit the rating.');
     }
   };
 
@@ -237,15 +404,15 @@ const Dashboard = () => {
               <p>Skills Wanted</p>
             </div>
             <div className="stat-card">
-              <h4><StatCounter end={12} /></h4>
+              <h4><StatCounter end={user.ratingCount || 0} /></h4>
               <p>Total Swaps</p>
             </div>
             <div className="stat-card">
-              <h4><StatCounter end={45} suffix="h" /></h4>
+              <h4><StatCounter end={(user.ratingCount || 0) * 2} suffix="h" /></h4>
               <p>Hours Learned</p>
             </div>
             <div className="stat-card">
-              <h4>{user.rating} ⭐</h4>
+              <h4>{typeof user.rating === 'number' ? user.rating.toFixed(1) : (user.rating || 'New')} ⭐</h4>
               <p>My Rating</p>
             </div>
           </div>
@@ -255,20 +422,19 @@ const Dashboard = () => {
             <div className="skill-card" style={{ gridColumn: '1 / -1' }}>
               <h3>🚀 Your Learning Journey</h3>
               <div className="progress-container">
-                <div className="progress-item">
-                  <div className="progress-header">
-                    <span>Advanced React Patterns</span>
-                    <span>75%</span>
-                  </div>
-                  <div className="progress-bar"><div className="progress-fill" style={{ width: '75%' }}></div></div>
-                </div>
-                <div className="progress-item">
-                  <div className="progress-header">
-                    <span>UI/UX Design Fundamentals</span>
-                    <span>40%</span>
-                  </div>
-                  <div className="progress-bar"><div className="progress-fill" style={{ width: '40%', background: '#bc13fe' }}></div></div>
-                </div>
+                {dashData.learningJourney && dashData.learningJourney.length > 0 ? (
+                  dashData.learningJourney.map((item, idx) => (
+                    <div className="progress-item" key={idx}>
+                      <div className="progress-header">
+                        <span>{item.skill}</span>
+                        <span>{item.progress}%</span>
+                      </div>
+                      <div className="progress-bar"><div className="progress-fill" style={{ width: `${item.progress}%`, background: item.color }}></div></div>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ color: '#aaa', textAlign: 'center', padding: '1rem', width: '100%' }}>Add skills you want to learn to track your progress!</p>
+                )}
               </div>
             </div>
           </div>
@@ -280,6 +446,9 @@ const Dashboard = () => {
                 {user.skillsWanted && user.skillsWanted.map((skill, index) => (
                   <li key={index}>{skill}</li>
                 ))}
+                {(!user.skillsWanted || user.skillsWanted.length === 0) && (
+                  <li style={{ justifyContent: 'center', color: '#aaa' }}>No skills added yet.</li>
+                )}
               </ul>
               <div className="add-skill-box">
                 <button className="btn-primary" style={{ width: '100%' }} onClick={() => handleOpenModal('wanted')}>
@@ -291,28 +460,25 @@ const Dashboard = () => {
             <div className="skill-card">
               <h3>📅 Upcoming Sessions</h3>
               <div className="session-list">
-                <div className="session-item">
-                  <div className="session-date">
-                    <span className="day">15</span>
-                    <span className="month">OCT</span>
+                {dashData.upcomingSessions && dashData.upcomingSessions.length > 0 ? dashData.upcomingSessions.map((session, idx) => (
+                  <div className="session-item" key={idx}>
+                    <div className="session-date">
+                      <span className="day">{session.day || '15'}</span>
+                      <span className="month">{session.month || 'OCT'}</span>
+                    </div>
+                    <div className="session-details">
+                      <strong>{session.title}</strong>
+                      <small>with {session.mentorName} • {session.time}</small>
+                    </div>
+                    {session.status === 'Pending' ? (
+                      <span style={{ fontSize: '0.8rem', color: '#f59e0b', padding: '5px 10px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '6px' }}>Pending Approval</span>
+                    ) : (
+                      <button className="btn-primary" style={{ padding: '5px 10px', fontSize: '0.8rem', background: '#10b981', border: 'none' }} onClick={() => handleJoinVideo(session, true)}>🎥 Join Video</button>
+                    )}
                   </div>
-                  <div className="session-details">
-                    <strong>React Hooks Deep Dive</strong>
-                    <small>with Sarah Jenkins • 10:00 AM</small>
-                  </div>
-                  <button className="btn-primary" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={() => handleCompleteSession({ teacherName: 'Sarah Jenkins', teacherEmail: '', skillTaught: 'React Hooks Deep Dive' })}>Complete</button>
-                </div>
-                <div className="session-item">
-                  <div className="session-date">
-                    <span className="day">18</span>
-                    <span className="month">OCT</span>
-                  </div>
-                  <div className="session-details">
-                    <strong>Guitar Basics</strong>
-                    <small>with Mike Taylor • 2:00 PM</small>
-                  </div>
-                  <button className="btn-outline" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>Join</button>
-                </div>
+                )) : (
+                  <p style={{ color: '#aaa', textAlign: 'center', padding: '1rem', width: '100%' }}>No upcoming sessions scheduled.</p>
+                )}
               </div>
             </div>
           </div>
@@ -322,43 +488,33 @@ const Dashboard = () => {
             <div className="skill-card">
               <h3>🏆 Top Mentors</h3>
               <div className="mentors-list">
-                <div className="mentor-item">
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div className="avatar" style={{ background: '#4f46e5' }}>JD</div>
-                    <div>
-                      <strong>John Doe</strong>
-                      <small style={{ display: 'block', color: '#aaa', fontSize: '0.8rem' }}>React Expert</small>
+                {dashData.topMentors && dashData.topMentors.length > 0 ? dashData.topMentors.map((mentor, idx) => (
+                  <div className="mentor-item" key={idx}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <div className="avatar" style={{ background: mentor.avatarBg }}>{mentor.initials}</div>
+                      <div>
+                        <strong>{mentor.name}</strong>
+                        <small style={{ display: 'block', color: '#aaa', fontSize: '0.8rem' }}>{mentor.expertIn}</small>
+                      </div>
                     </div>
+                    <button className="btn-outline" style={{ padding: '4px 12px', fontSize: '0.8rem' }}>Follow</button>
                   </div>
-                  <button className="btn-outline" style={{ padding: '4px 12px', fontSize: '0.8rem' }}>Follow</button>
-                </div>
-                <div className="mentor-item">
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div className="avatar" style={{ background: '#10b981' }}>AS</div>
-                    <div>
-                      <strong>Anna Smith</strong>
-                      <small style={{ display: 'block', color: '#aaa', fontSize: '0.8rem' }}>UX Designer</small>
-                    </div>
-                  </div>
-                  <button className="btn-outline" style={{ padding: '4px 12px', fontSize: '0.8rem' }}>Follow</button>
-                </div>
+                )) : (
+                  <p style={{ color: '#aaa', textAlign: 'center', padding: '1rem', width: '100%' }}>No mentors found yet.</p>
+                )}
               </div>
             </div>
             <div className="skill-card">
               <h3>⚡ Daily Challenges</h3>
               <div className="challenges-list">
-                <div className="challenge-item">
-                  <strong>Build a To-Do App</strong>
-                  <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981' }}>Easy</span>
-                </div>
-                <div className="challenge-item">
-                  <strong>API Integration</strong>
-                  <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b' }}>Medium</span>
-                </div>
-                <div className="challenge-item">
-                  <strong>Optimize Algorithms</strong>
-                  <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}>Hard</span>
-                </div>
+                {dashData.dailyChallenges && dashData.dailyChallenges.length > 0 ? dashData.dailyChallenges.map((challenge, idx) => (
+                  <div className="challenge-item" key={idx}>
+                    <strong>{challenge.title}</strong>
+                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: challenge.bgClass, color: challenge.colorClass }}>{challenge.difficulty}</span>
+                  </div>
+                )) : (
+                  <p style={{ color: '#aaa', textAlign: 'center', padding: '1rem', width: '100%' }}>No challenges available.</p>
+                )}
               </div>
             </div>
           </div>
@@ -372,11 +528,11 @@ const Dashboard = () => {
               <p>Skills Offered</p>
             </div>
             <div className="stat-card">
-              <h4><StatCounter end={3} /></h4>
-              <p>Pending Requests</p>
+              <h4><StatCounter end={user.ratingCount || 0} /></h4>
+              <p>Sessions Completed</p>
             </div>
             <div className="stat-card">
-              <h4><StatCounter end={15} suffix="h" /></h4>
+              <h4><StatCounter end={(user.ratingCount || 0) * 2} suffix="h" /></h4>
               <p>Hours Taught</p>
             </div>
             <div className="stat-card">
@@ -392,6 +548,9 @@ const Dashboard = () => {
                 {user.skillsOffered && user.skillsOffered.map((skill, index) => (
                   <li key={index}>{skill}</li>
                 ))}
+                {(!user.skillsOffered || user.skillsOffered.length === 0) && (
+                  <li style={{ justifyContent: 'center', color: '#aaa' }}>No skills offered yet.</li>
+                )}
               </ul>
               <div className="add-skill-box">
                 <button className="btn-primary" style={{ width: '100%' }} onClick={() => handleOpenModal('offered')}>
@@ -403,22 +562,18 @@ const Dashboard = () => {
             <div className="skill-card">
               <h3>🔥 Recommended Matches</h3>
               <div className="matches-list">
-                <div className="match-item">
-                  <div className="avatar" style={{ background: '#ff6b6b' }}>SJ</div>
-                  <div className="match-info">
-                    <strong>Sarah Jenkins</strong>
-                    <small>Wants to learn: {user.skillsOffered?.[0] || 'Coding'}</small>
+                {dashData.recommendedMatches && dashData.recommendedMatches.length > 0 ? dashData.recommendedMatches.map((match, idx) => (
+                  <div className="match-item" key={idx}>
+                    <div className="avatar" style={{ background: match.avatarBg }}>{match.initials}</div>
+                    <div className="match-info">
+                      <strong>{match.name}</strong>
+                      <small>Wants to learn: {match.wantsToLearn}</small>
+                    </div>
+                    <button className="btn-outline" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>Connect</button>
                   </div>
-                  <button className="btn-outline" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>Connect</button>
-                </div>
-                <div className="match-item">
-                  <div className="avatar" style={{ background: '#f9cb28' }}>MT</div>
-                  <div className="match-info">
-                    <strong>Mike Taylor</strong>
-                    <small>Wants to learn: {user.skillsOffered?.[0] || 'Coding'}</small>
-                  </div>
-                  <button className="btn-outline" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>Connect</button>
-                </div>
+                )) : (
+                  <p style={{ color: '#aaa', textAlign: 'center', padding: '1rem', width: '100%' }}>No recommended matches yet.</p>
+                )}
               </div>
             </div>
           </div>
@@ -428,42 +583,41 @@ const Dashboard = () => {
             <div className="skill-card">
               <h3>🌟 Student Reviews</h3>
               <div className="reviews-list">
-                <div className="review-item">
-                  <p>"Great teacher! Explained concepts clearly and helped me debug my code."</p>
-                  <small>- Alice (Python)</small>
-                </div>
-                <div className="review-item">
-                  <p>"Very patient and knowledgeable. Highly recommended!"</p>
-                  <small>- Bob (JavaScript)</small>
-                </div>
+                {dashData.studentReviews && dashData.studentReviews.length > 0 ? dashData.studentReviews.map((rev, idx) => (
+                  <div className="review-item" key={idx}>
+                    <p>"{rev.comment}"</p>
+                    <small>- {rev.studentName} ({rev.skill})</small>
+                  </div>
+                )) : (
+                  <p style={{ color: '#aaa', textAlign: 'center', padding: '1rem', width: '100%' }}>No reviews yet.</p>
+                )}
               </div>
             </div>
 
             <div className="skill-card">
               <h3>📅 My Teaching Schedule</h3>
               <div className="session-list">
-                <div className="session-item">
-                  <div className="session-date">
-                    <span className="day">20</span>
-                    <span className="month">OCT</span>
+                {dashData.teachingSchedule && dashData.teachingSchedule.length > 0 ? dashData.teachingSchedule.map((session, idx) => (
+                  <div className="session-item" key={idx}>
+                    <div className="session-date">
+                      <span className="day">{session.day || '20'}</span>
+                      <span className="month">{session.month || 'OCT'}</span>
+                    </div>
+                    <div className="session-details">
+                      <strong>{session.title}</strong>
+                      <small>Student: {session.studentName} • {session.time}</small>
+                    </div>
+                    {session.status === 'Pending' ? (
+                      <button className="btn-primary" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={() => handleApproveSession(session.id)}>Approve</button>
+                    ) : session.status === 'Scheduled' ? (
+                      <span style={{ fontSize: '0.8rem', color: '#646cff', padding: '5px 10px', background: 'rgba(100, 108, 255, 0.1)', borderRadius: '6px' }}>Waiting for Learner...</span>
+                    ) : (
+                      <button className="btn-primary" style={{ padding: '5px 10px', fontSize: '0.8rem', background: '#10b981', border: 'none' }} onClick={() => handleJoinVideo(session, false)}>🎥 Join Video</button>
+                    )}
                   </div>
-                  <div className="session-details">
-                    <strong>Intro to Python</strong>
-                    <small>Student: Alice • 4:00 PM</small>
-                  </div>
-                  <button className="btn-primary" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={() => handleCompleteSession({ teacherName: user.name, teacherEmail: user.email, skillTaught: 'Intro to Python' })}>Complete</button>
-                </div>
-                <div className="session-item">
-                  <div className="session-date">
-                    <span className="day">22</span>
-                    <span className="month">OCT</span>
-                  </div>
-                  <div className="session-details">
-                    <strong>Advanced JS Patterns</strong>
-                    <small>Student: Bob • 2:00 PM</small>
-                  </div>
-                  <button className="btn-outline" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>Start</button>
-                </div>
+                )) : (
+                  <p style={{ color: '#aaa', textAlign: 'center', padding: '1rem', width: '100%' }}>No scheduled sessions.</p>
+                )}
               </div>
             </div>
           </div>
@@ -473,11 +627,11 @@ const Dashboard = () => {
           {/* Certificates Stats */}
           <div className="dashboard-stats">
             <div className="stat-card">
-              <h4><StatCounter end={5} /></h4>
+              <h4><StatCounter end={dashData.certificates?.length || 0} /></h4>
               <p>Certificates Earned</p>
             </div>
             <div className="stat-card">
-              <h4><StatCounter end={2} /></h4>
+              <h4><StatCounter end={user.skillsWanted?.length || 0} /></h4>
               <p>In Progress</p>
             </div>
           </div>
@@ -486,26 +640,20 @@ const Dashboard = () => {
             <div className="skill-card">
               <h3>🎓 My Certificates</h3>
               <div className="session-list">
-                <div className="session-item">
-                  <div className="session-date" style={{ background: 'rgba(16, 185, 129, 0.2)' }}>
-                    <span className="day" style={{ color: '#10b981' }}>✔</span>
+                {dashData.certificates && dashData.certificates.length > 0 ? dashData.certificates.map((cert, idx) => (
+                  <div className="session-item" key={idx}>
+                    <div className="session-date" style={{ background: 'rgba(16, 185, 129, 0.2)' }}>
+                      <span className="day" style={{ color: '#10b981' }}>✔</span>
+                    </div>
+                    <div className="session-details">
+                      <strong>{cert.title}</strong>
+                      <small>Issued by {cert.issuer} • {cert.date}</small>
+                    </div>
+                    <button className="btn-outline" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={() => alert('Certificate PDF generated successfully!')}>Download</button>
                   </div>
-                  <div className="session-details">
-                    <strong>Advanced React Patterns</strong>
-                    <small>Issued by SkillSwap • Oct 2023</small>
-                  </div>
-                  <button className="btn-outline" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>Download</button>
-                </div>
-                <div className="session-item">
-                  <div className="session-date" style={{ background: 'rgba(16, 185, 129, 0.2)' }}>
-                    <span className="day" style={{ color: '#10b981' }}>✔</span>
-                  </div>
-                  <div className="session-details">
-                    <strong>UI/UX Fundamentals</strong>
-                    <small>Issued by SkillSwap • Sep 2023</small>
-                  </div>
-                  <button className="btn-outline" style={{ padding: '5px 10px', fontSize: '0.8rem' }}>Download</button>
-                </div>
+                )) : (
+                  <p style={{ color: '#aaa', textAlign: 'center', padding: '1rem', width: '100%' }}>No certificates earned yet. Teach a skill to get one!</p>
+                )}
               </div>
             </div>
           </div>
@@ -517,27 +665,17 @@ const Dashboard = () => {
         <div className="skill-card">
           <h3>📢 Recent Activity</h3>
           <ul className="activity-list">
-            <li>
-              <span className="activity-icon">✅</span>
-              <div>
-                <strong>Profile Updated</strong>
-                <small>You added new skills to your profile.</small>
-              </div>
-            </li>
-            <li>
-              <span className="activity-icon">📩</span>
-              <div>
-                <strong>New Message</strong>
-                <small>Alex wants to swap skills with you.</small>
-              </div>
-            </li>
-            <li>
-              <span className="activity-icon">🌟</span>
-              <div>
-                <strong>New Review</strong>
-                <small>You received 5 stars from Elena.</small>
-              </div>
-            </li>
+              {dashData.recentActivities && dashData.recentActivities.length > 0 ? dashData.recentActivities.map((act, idx) => (
+                <li key={idx}>
+                  <span className="activity-icon">{act.icon}</span>
+                  <div>
+                    <strong>{act.title}</strong>
+                    <small>{act.desc}</small>
+                  </div>
+                </li>
+              )) : (
+                <li style={{ color: '#aaa', justifyContent: 'center' }}>No recent activity.</li>
+              )}
           </ul>
         </div>
       </div>
@@ -630,6 +768,71 @@ const Dashboard = () => {
                 {isVerifying ? 'Sending Request...' : 'Send Verification Request'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Live Video Interaction Modal */}
+      {showVideoModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease-out' }}>
+          <div style={{ background: '#1f2937', padding: '30px', borderRadius: '16px', width: '95vw', height: '95vh', border: '1px solid #374151', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h3 style={{ margin: 0, color: '#fff', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>🔴 Live Class: {activeSession?.title}</h3>
+              <button onClick={() => setShowVideoModal(false)} style={{ background: 'transparent', color: '#ef4444', border: 'none', fontSize: '1.5rem', cursor: 'pointer', padding: '0 10px' }}>✖</button>
+            </div>
+            <div style={{ margin: '0 0 20px 0', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ background: 'rgba(100,108,255,0.15)', border: '1px solid rgba(100,108,255,0.3)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.95rem' }}>👑 Host (Teacher): <strong style={{ color: '#fff' }}>{activeSession?.mentorName}</strong></span>
+              <span style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', color: '#6ee7b7', padding: '6px 12px', borderRadius: '8px', fontSize: '0.95rem' }}>🎓 Learner: <strong style={{ color: '#fff' }}>{activeSession?.studentName || user.name}</strong></span>
+              <span style={{ color: '#aaa', fontSize: '0.9rem', marginLeft: 'auto' }}>⏳ Time is unlimited!</span>
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', gap: '20px', overflow: 'hidden' }}>
+              {/* Main Video (Other Person) */}
+              <div style={{ flex: 2, background: '#000', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px solid #374151', position: 'relative' }}>
+                <span style={{ fontSize: '4rem', marginBottom: '1rem' }}>📹</span>
+                <span style={{ fontSize: '1.2rem', color: '#10b981', animation: 'pulse 2s infinite' }}>Connected & Active</span>
+                <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(0,0,0,0.8)', padding: '8px 15px', borderRadius: '8px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #374151' }}>
+                  {viewMode === 'learning' ? <><span style={{fontSize:'1.2rem'}}>👑</span> <span>Host: <strong>{activeSession?.mentorName}</strong></span></> : <><span style={{fontSize:'1.2rem'}}>🎓</span> <span>Learner: <strong>{activeSession?.studentName || 'Student'}</strong></span></>}
+                </div>
+              </div>
+
+              {/* Sidebar (My Video & Chat) */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ flex: 1, background: '#111827', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #374151', position: 'relative' }}>
+                  <span style={{ fontSize: '2rem' }}>🧑‍💻</span>
+                  <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(0,0,0,0.8)', padding: '5px 10px', borderRadius: '6px', color: '#fff', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #374151' }}>
+                    {viewMode === 'learning' ? <><span style={{fontSize:'1rem'}}>🎓</span> <span>Learner (You)</span></> : <><span style={{fontSize:'1rem'}}>👑</span> <span>Host (You)</span></>}
+                  </div>
+                </div>
+                <div style={{ flex: 2, background: '#111827', borderRadius: '12px', border: '1px solid #374151', padding: '15px', display: 'flex', flexDirection: 'column' }}>
+                  <h4 style={{ marginTop: 0, color: '#e5e7eb', borderBottom: '1px solid #374151', paddingBottom: '10px' }}>Class Chat</h4>
+                  <div style={{ flex: 1, overflowY: 'auto', marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '5px' }}>
+                    <div style={{ alignSelf: 'center', color: '#10b981', padding: '4px 0', fontSize: '0.85rem', fontStyle: 'italic', textAlign: 'center' }}>Welcome to the live class! You can chat here.</div>
+                    {classChat.map((msg, i) => (
+                      <div key={i} style={{ 
+                        alignSelf: msg.sender === user.name ? 'flex-end' : 'flex-start', 
+                        background: msg.sender === user.name ? '#646cff' : '#374151', 
+                        color: '#fff', 
+                        padding: '8px 12px', 
+                        borderRadius: '12px', 
+                        fontSize: '0.9rem', 
+                        maxWidth: '85%' 
+                      }}>
+                        {msg.sender !== user.name && <strong style={{display:'block', fontSize:'0.75rem', marginBottom:'2px', color:'#aaa'}}>{msg.sender}</strong>}
+                        {msg.text}
+                      </div>
+                    ))}
+                  </div>
+                  <input type="text" placeholder="Type a message and press Enter..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={handleSendChat} style={{ width: '100%', boxSizing: 'border-box', padding: '12px', borderRadius: '8px', border: '1px solid #374151', background: '#1f2937', color: '#fff', outline: 'none' }} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #374151' }}>
+              <button onClick={handleEndVideo} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '15px 30px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                📞 End Class
+              </button>
+            </div>
           </div>
         </div>
       )}
