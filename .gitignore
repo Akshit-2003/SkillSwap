@@ -4,13 +4,6 @@ node_modules/
 # Environment variables
 .env
 
-# Build output
-frontend/dist/
-
-# Uploaded media files
+# Uploaded files and builds
 backend/uploads/
-
-# Logs & OS generated files
-npm-debug.log*
-yarn-error.log*
-.DS_Store
+frontend/dist/

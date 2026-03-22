@@ -2,6 +2,7 @@ export const apiRoutes = {
   auth: {
     login: '/api/auth/login',
     register: '/api/auth/register',
+    socialLogin: '/api/auth/social-login',
     registerSuperAdmin: '/api/auth/register-super-admin',
   },
   user: {

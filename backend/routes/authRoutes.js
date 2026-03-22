@@ -35,6 +35,27 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/social-login', async (req, res) => {
+  try {
+    const { name, email, avatar } = req.body;
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      user = new User({
+        name,
+        email,
+        password: Math.random().toString(36).slice(-8), // Dummy password for social accounts
+        credits: 5
+      });
+      await user.save();
+    }
+
+    return res.json({ message: 'Social login successful', user });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/register-super-admin', async (req, res) => {
   const { name, email, password, secretKey } = req.body;
 
