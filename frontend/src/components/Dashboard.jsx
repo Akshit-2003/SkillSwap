@@ -86,6 +86,7 @@ const Dashboard = () => {
   const pendingIceCandidatesRef = useRef([]);
   const navigate = useNavigate();
   const location = useLocation();
+  const currentUserEmail = user?.email || '';
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -493,7 +494,7 @@ const Dashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [showVideoModal, activeSession, user]);
+  }, [showVideoModal, activeSession?.id, currentUserEmail]);
 
   useEffect(() => {
     if (!showVideoModal || !activeSession || !user || isPreparingCall) {
@@ -578,7 +579,7 @@ const Dashboard = () => {
       disposed = true;
       clearInterval(intervalId);
     };
-  }, [showVideoModal, activeSession, user, isPreparingCall]);
+  }, [showVideoModal, activeSession?.id, currentUserEmail, isPreparingCall]);
 
   useEffect(() => () => {
     cleanupCallResources();
