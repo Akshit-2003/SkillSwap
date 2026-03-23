@@ -45,17 +45,3 @@ connectDatabase(MONGODB_URI).then(() => {
 }).catch((err) => {
   console.error("Database connection failed on startup:", err.message);
 });
-// ✅ pehle tumhare routes honge
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-
-// ✅ phir yeh dalna hai (last me)
-import path from "path";
-
-const __dirname = path.resolve();
-
-app.use(express.static(path.join(__dirname, "/frontend/dist")));
-
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "/frontend/dist/index.html"));
-});
