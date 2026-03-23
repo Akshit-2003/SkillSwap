@@ -77,6 +77,7 @@ const Dashboard = () => {
   const [isCameraEnabled, setIsCameraEnabled] = useState(true);
   const [hasRemoteMedia, setHasRemoteMedia] = useState(false);
   const [isPreparingCall, setIsPreparingCall] = useState(false);
+  const [localMediaError, setLocalMediaError] = useState('');
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -154,11 +155,14 @@ const Dashboard = () => {
       return { currentEmail: '', otherEmail: '', isLearner: false };
     }
 
-    const isLearner = session.mentorEmail !== user.email;
+    const currentEmail = (user.email || '').trim().toLowerCase();
+    const mentorEmail = (session.mentorEmail || '').trim().toLowerCase();
+    const learnerEmail = (session.studentEmail || session.learnerEmail || '').trim().toLowerCase();
+    const isLearner = currentEmail === learnerEmail || (currentEmail !== mentorEmail && !!mentorEmail);
 
     return {
-      currentEmail: user.email,
-      otherEmail: isLearner ? session.mentorEmail : (session.studentEmail || session.learnerEmail),
+      currentEmail,
+      otherEmail: isLearner ? mentorEmail : learnerEmail,
       isLearner
     };
   };
@@ -207,6 +211,7 @@ const Dashboard = () => {
     setCallStatus('Ready to connect');
     setIsMicEnabled(true);
     setIsCameraEnabled(true);
+    setLocalMediaError('');
   };
 
   const sendCallSignal = async (sessionId, type, fromEmail, toEmail, payload = null) => {
@@ -217,7 +222,8 @@ const Dashboard = () => {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to sync ${type} signal`);
+      const errorText = await response.text().catch(() => '');
+      throw new Error(errorText || `Failed to sync ${type} signal`);
     }
 
     const data = await response.json().catch(() => null);
@@ -232,10 +238,17 @@ const Dashboard = () => {
       return localStreamRef.current;
     }
 
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localStreamRef.current = stream;
-    attachVideoStreams();
-    return stream;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localStreamRef.current = stream;
+      setLocalMediaError('');
+      attachVideoStreams();
+      return stream;
+    } catch (error) {
+      console.error('Local media access error:', error);
+      setLocalMediaError('Your camera/microphone is blocked. You can still receive the other person.');
+      return null;
+    }
   };
 
   const createPeerConnection = async (session) => {
@@ -261,9 +274,14 @@ const Dashboard = () => {
 
     const peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
 
-    stream.getTracks().forEach(track => {
-      peerConnection.addTrack(track, stream);
-    });
+    if (stream) {
+      stream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, stream);
+      });
+    } else {
+      peerConnection.addTransceiver('video', { direction: 'recvonly' });
+      peerConnection.addTransceiver('audio', { direction: 'recvonly' });
+    }
 
     peerConnection.ontrack = (event) => {
       const incomingTracks = event.streams?.[0]?.getTracks?.().length
@@ -508,8 +526,8 @@ const Dashboard = () => {
         }
       } catch (error) {
         console.error('Video call init error:', error);
-        setCallStatus('Unable to access camera/microphone');
-        alert('Camera or microphone access failed. Please allow permissions and try again.');
+        setCallStatus('Unable to start call');
+        alert('Unable to start the live call. Please try again.');
       } finally {
         if (!cancelled) {
           setIsPreparingCall(false);
@@ -1211,6 +1229,11 @@ const Dashboard = () => {
                     playsInline
                     style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isCameraEnabled ? 1 : 0.25 }}
                   />
+                  {localMediaError && (
+                    <div style={{ position: 'absolute', inset: 'auto 12px 12px 12px', background: 'rgba(0,0,0,0.75)', color: '#fbbf24', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', lineHeight: '1.35', border: '1px solid rgba(251,191,36,0.25)' }}>
+                      {localMediaError}
+                    </div>
+                  )}
                   {!isCameraEnabled && <span style={{ position: 'absolute', fontSize: '2rem' }}>📷 Off</span>}
                   <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(0,0,0,0.8)', padding: '5px 10px', borderRadius: '6px', color: '#fff', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #374151' }}>
                     {viewMode === 'learning' ? <><span style={{fontSize:'1rem'}}>🎓</span> <span>Learner (You)</span></> : <><span style={{fontSize:'1rem'}}>👑</span> <span>Host (You)</span></>}
@@ -1241,10 +1264,10 @@ const Dashboard = () => {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #374151', gap: '12px', flexWrap: 'wrap' }}>
-              <button onClick={toggleMicrophone} style={{ background: isMicEnabled ? '#374151' : '#7f1d1d', color: '#fff', border: 'none', padding: '15px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+              <button onClick={toggleMicrophone} disabled={!localStreamRef.current} style={{ background: isMicEnabled ? '#374151' : '#7f1d1d', color: '#fff', border: 'none', padding: '15px 20px', borderRadius: '8px', cursor: localStreamRef.current ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '1rem', opacity: localStreamRef.current ? 1 : 0.55 }}>
                 {isMicEnabled ? 'Mute Mic' : 'Unmute Mic'}
               </button>
-              <button onClick={toggleCamera} style={{ background: isCameraEnabled ? '#374151' : '#7f1d1d', color: '#fff', border: 'none', padding: '15px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+              <button onClick={toggleCamera} disabled={!localStreamRef.current} style={{ background: isCameraEnabled ? '#374151' : '#7f1d1d', color: '#fff', border: 'none', padding: '15px 20px', borderRadius: '8px', cursor: localStreamRef.current ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '1rem', opacity: localStreamRef.current ? 1 : 0.55 }}>
                 {isCameraEnabled ? 'Turn Off Camera' : 'Turn On Camera'}
               </button>
               <button onClick={handleEndVideo} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '15px 30px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const userController = require('../controllers/userController');
 const User = require('../models/User'); // User model import karna zaroori hai
 const Message = require('../models/Message'); // Unread messages check karne ke liye
@@ -28,13 +29,15 @@ const upload = multer({ storage: storage });
 const createAttemptId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 const getSanitizedCallState = (session, viewerEmail) => {
-    const callState = session.call || {};
+    const rawSession = typeof session?.toObject === 'function' ? session.toObject() : session;
+    const callState = rawSession?.call || {};
+    const iceCandidates = Array.isArray(callState.iceCandidates) ? callState.iceCandidates : [];
 
     return {
         attemptId: callState.attemptId || '',
         offer: callState.offer && (!callState.offer.toEmail || callState.offer.toEmail === viewerEmail) ? callState.offer : null,
         answer: callState.answer && (!callState.answer.toEmail || callState.answer.toEmail === viewerEmail) ? callState.answer : null,
-        iceCandidates: (callState.iceCandidates || []).filter(candidate => {
+        iceCandidates: iceCandidates.filter(candidate => {
             const matchesViewer = !candidate.toEmail || candidate.toEmail === viewerEmail;
             const matchesAttempt = !callState.attemptId || !candidate.attemptId || candidate.attemptId === callState.attemptId;
             return matchesViewer && matchesAttempt;
@@ -161,7 +164,11 @@ router.put('/end-session', async (req, res) => {
 router.get('/session-call/:sessionId', async (req, res) => {
     try {
         const { email } = req.query;
-        const session = await Session.findById(req.params.sessionId);
+        if (!mongoose.Types.ObjectId.isValid(req.params.sessionId)) {
+            return res.status(404).json({ message: 'Session not found' });
+        }
+
+        const session = await Session.findById(req.params.sessionId).lean();
         if (!session) return res.status(404).json({ message: 'Session not found' });
         res.json(getSanitizedCallState(session, email));
     } catch (error) {
@@ -176,10 +183,22 @@ router.post('/session-call', async (req, res) => {
         const session = await Session.findById(sessionId);
 
         if (!session) return res.status(404).json({ message: 'Session not found' });
-        const allowedParticipants = [session.learnerEmail, session.mentorEmail];
+        const learnerEmail = (session.learnerEmail || '').trim().toLowerCase();
+        const mentorEmail = (session.mentorEmail || '').trim().toLowerCase();
+        const normalizedFromEmail = (fromEmail || '').trim().toLowerCase();
+        const normalizedToEmail = (toEmail || '').trim().toLowerCase();
+        const allowedParticipants = [learnerEmail, mentorEmail].filter(Boolean);
 
-        if (!allowedParticipants.includes(fromEmail) || !allowedParticipants.includes(toEmail) || fromEmail === toEmail) {
-            return res.status(400).json({ message: 'Invalid call participants' });
+        if (!allowedParticipants.includes(normalizedFromEmail)) {
+            return res.status(400).json({ message: 'Invalid caller for this session' });
+        }
+
+        const resolvedToEmail = normalizedToEmail && normalizedToEmail !== normalizedFromEmail
+            ? normalizedToEmail
+            : (normalizedFromEmail === learnerEmail ? mentorEmail : learnerEmail);
+
+        if (!allowedParticipants.includes(resolvedToEmail) || resolvedToEmail === normalizedFromEmail) {
+            return res.status(400).json({ message: 'Invalid target participant for this session' });
         }
 
         if (!['offer', 'answer', 'ice-candidate', 'reset'].includes(type)) {
@@ -201,8 +220,8 @@ router.post('/session-call', async (req, res) => {
                     $set: {
                         'call.attemptId': attemptId || activeAttemptId || createAttemptId(),
                         'call.offer': {
-                            fromEmail,
-                            toEmail,
+                            fromEmail: normalizedFromEmail,
+                            toEmail: resolvedToEmail,
                             attemptId: attemptId || activeAttemptId || '',
                             payload,
                             updatedAt: new Date()
@@ -223,8 +242,8 @@ router.post('/session-call', async (req, res) => {
                 {
                     $set: {
                         'call.answer': {
-                            fromEmail,
-                            toEmail,
+                            fromEmail: normalizedFromEmail,
+                            toEmail: resolvedToEmail,
                             attemptId: attemptId || activeAttemptId || '',
                             payload,
                             updatedAt: new Date()
@@ -242,8 +261,8 @@ router.post('/session-call', async (req, res) => {
                 {
                     $push: {
                         'call.iceCandidates': {
-                            fromEmail,
-                            toEmail,
+                            fromEmail: normalizedFromEmail,
+                            toEmail: resolvedToEmail,
                             attemptId: attemptId || activeAttemptId || '',
                             candidate: payload
                         }
@@ -274,7 +293,7 @@ router.post('/session-call', async (req, res) => {
             );
         }
 
-        res.json({ message: 'Call signal saved', call: getSanitizedCallState(updatedSession, toEmail || fromEmail) });
+        res.json({ message: 'Call signal saved', call: getSanitizedCallState(updatedSession, resolvedToEmail || normalizedFromEmail) });
     } catch (error) {
         console.error('Session call signal error:', error);
         res.status(500).json({ message: 'Server error saving call state' });
