@@ -520,14 +520,13 @@ const Dashboard = () => {
           callState.offer.fromEmail === otherEmail &&
           processedSignalsRef.current.offer !== callState.offer.updatedAt
         ) {
-          processedSignalsRef.current.offer = callState.offer.updatedAt;
-
-          if (!peerConnection.currentRemoteDescription) {
+          if (!peerConnection.remoteDescription) {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(callState.offer.payload));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             await flushPendingIceCandidates(peerConnection);
             await sendCallSignal(activeSession.id, 'answer', currentEmail, otherEmail, answer);
+            processedSignalsRef.current.offer = callState.offer.updatedAt;
             setCallStatus('Joining call...');
           }
         }
@@ -537,11 +536,10 @@ const Dashboard = () => {
           callState.answer.fromEmail === otherEmail &&
           processedSignalsRef.current.answer !== callState.answer.updatedAt
         ) {
-          processedSignalsRef.current.answer = callState.answer.updatedAt;
-
-          if (!peerConnection.currentRemoteDescription) {
+          if (!peerConnection.remoteDescription) {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(callState.answer.payload));
             await flushPendingIceCandidates(peerConnection);
+            processedSignalsRef.current.answer = callState.answer.updatedAt;
             setCallStatus('Connected & Active');
           }
         }
@@ -563,7 +561,7 @@ const Dashboard = () => {
         if (
           isLearner &&
           !callState.offer &&
-          !peerConnection.currentLocalDescription &&
+          !peerConnection.localDescription &&
           !isPreparingCall
         ) {
           await createAndSendOffer(activeSession);
