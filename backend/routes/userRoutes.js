@@ -25,6 +25,18 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+const getSanitizedCallState = (session, viewerEmail) => {
+    const callState = session.call || {};
+
+    return {
+        offer: callState.offer && (!callState.offer.toEmail || callState.offer.toEmail === viewerEmail) ? callState.offer : null,
+        answer: callState.answer && (!callState.answer.toEmail || callState.answer.toEmail === viewerEmail) ? callState.answer : null,
+        iceCandidates: (callState.iceCandidates || []).filter(candidate => !candidate.toEmail || candidate.toEmail === viewerEmail),
+        startedAt: callState.startedAt || null,
+        endedAt: callState.endedAt || null
+    };
+};
+
 router.get('/profile', userController.getProfile);
 router.post('/updateProfile', userController.updateProfile);
 router.get('/messages', userController.getMessages);
@@ -86,7 +98,11 @@ router.put('/approve-session', async (req, res) => {
 router.put('/join-session', async (req, res) => {
     try {
         const { sessionId } = req.body;
-        const session = await Session.findByIdAndUpdate(sessionId, { status: 'Active' }, { new: true });
+        const session = await Session.findByIdAndUpdate(
+            sessionId,
+            { status: 'Active', 'call.startedAt': new Date(), 'call.endedAt': null },
+            { new: true }
+        );
         if (!session) return res.status(404).json({ message: 'Session not found' });
         res.json({ message: 'Session is now active', session });
     } catch (error) {
@@ -104,6 +120,13 @@ router.put('/end-session', async (req, res) => {
 
         if (session.status === 'Active') {
             session.status = 'Completed';
+            session.call = {
+                offer: null,
+                answer: null,
+                iceCandidates: [],
+                startedAt: session.call?.startedAt || new Date(),
+                endedAt: new Date()
+            };
             await session.save();
             // Award 1 credit to the mentor instantly
             const teacher = await User.findOne({ email: session.mentorEmail });
@@ -116,6 +139,81 @@ router.put('/end-session', async (req, res) => {
     } catch (error) {
         console.error('End session error:', error);
         res.status(500).json({ message: 'Server error ending session' });
+    }
+});
+
+router.get('/session-call/:sessionId', async (req, res) => {
+    try {
+        const { email } = req.query;
+        const session = await Session.findById(req.params.sessionId);
+        if (!session) return res.status(404).json({ message: 'Session not found' });
+        res.json(getSanitizedCallState(session, email));
+    } catch (error) {
+        console.error('Session call fetch error:', error);
+        res.status(500).json({ message: 'Server error fetching call state' });
+    }
+});
+
+router.post('/session-call', async (req, res) => {
+    try {
+        const { sessionId, type, fromEmail, toEmail, payload } = req.body;
+        const session = await Session.findById(sessionId);
+
+        if (!session) return res.status(404).json({ message: 'Session not found' });
+        session.call = session.call || { offer: null, answer: null, iceCandidates: [], startedAt: null, endedAt: null };
+
+        if (!['offer', 'answer', 'ice-candidate', 'reset'].includes(type)) {
+            return res.status(400).json({ message: 'Invalid call signal type' });
+        }
+
+        if (type === 'offer') {
+            session.call.offer = {
+                fromEmail,
+                toEmail,
+                payload,
+                updatedAt: new Date()
+            };
+            session.call.answer = null;
+            session.call.iceCandidates = [];
+            session.call.startedAt = session.call.startedAt || new Date();
+            session.call.endedAt = null;
+        }
+
+        if (type === 'answer') {
+            session.call.answer = {
+                fromEmail,
+                toEmail,
+                payload,
+                updatedAt: new Date()
+            };
+            session.call.endedAt = null;
+        }
+
+        if (type === 'ice-candidate') {
+            session.call.iceCandidates.push({
+                fromEmail,
+                toEmail,
+                candidate: payload
+            });
+
+            if (session.call.iceCandidates.length > 100) {
+                session.call.iceCandidates = session.call.iceCandidates.slice(-100);
+            }
+        }
+
+        if (type === 'reset') {
+            session.call.offer = null;
+            session.call.answer = null;
+            session.call.iceCandidates = [];
+            session.call.startedAt = new Date();
+            session.call.endedAt = null;
+        }
+
+        await session.save();
+        res.json({ message: 'Call signal saved', call: getSanitizedCallState(session, toEmail || fromEmail) });
+    } catch (error) {
+        console.error('Session call signal error:', error);
+        res.status(500).json({ message: 'Server error saving call state' });
     }
 });
 
