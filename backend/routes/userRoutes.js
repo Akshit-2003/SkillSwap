@@ -100,7 +100,14 @@ router.put('/join-session', async (req, res) => {
         const { sessionId } = req.body;
         const session = await Session.findByIdAndUpdate(
             sessionId,
-            { status: 'Active', 'call.startedAt': new Date(), 'call.endedAt': null },
+            {
+                status: 'Active',
+                'call.offer': null,
+                'call.answer': null,
+                'call.iceCandidates': [],
+                'call.startedAt': new Date(),
+                'call.endedAt': null
+            },
             { new: true }
         );
         if (!session) return res.status(404).json({ message: 'Session not found' });
@@ -160,57 +167,93 @@ router.post('/session-call', async (req, res) => {
         const session = await Session.findById(sessionId);
 
         if (!session) return res.status(404).json({ message: 'Session not found' });
-        session.call = session.call || { offer: null, answer: null, iceCandidates: [], startedAt: null, endedAt: null };
+        const allowedParticipants = [session.learnerEmail, session.mentorEmail];
+
+        if (!allowedParticipants.includes(fromEmail) || !allowedParticipants.includes(toEmail) || fromEmail === toEmail) {
+            return res.status(400).json({ message: 'Invalid call participants' });
+        }
 
         if (!['offer', 'answer', 'ice-candidate', 'reset'].includes(type)) {
             return res.status(400).json({ message: 'Invalid call signal type' });
         }
 
+        let updatedSession = null;
+
         if (type === 'offer') {
-            session.call.offer = {
-                fromEmail,
-                toEmail,
-                payload,
-                updatedAt: new Date()
-            };
-            session.call.answer = null;
-            session.call.iceCandidates = [];
-            session.call.startedAt = session.call.startedAt || new Date();
-            session.call.endedAt = null;
+            updatedSession = await Session.findByIdAndUpdate(
+                sessionId,
+                {
+                    $set: {
+                        'call.offer': {
+                            fromEmail,
+                            toEmail,
+                            payload,
+                            updatedAt: new Date()
+                        },
+                        'call.answer': null,
+                        'call.iceCandidates': [],
+                        'call.startedAt': new Date(),
+                        'call.endedAt': null
+                    }
+                },
+                { new: true }
+            );
         }
 
         if (type === 'answer') {
-            session.call.answer = {
-                fromEmail,
-                toEmail,
-                payload,
-                updatedAt: new Date()
-            };
-            session.call.endedAt = null;
+            updatedSession = await Session.findByIdAndUpdate(
+                sessionId,
+                {
+                    $set: {
+                        'call.answer': {
+                            fromEmail,
+                            toEmail,
+                            payload,
+                            updatedAt: new Date()
+                        },
+                        'call.endedAt': null
+                    }
+                },
+                { new: true }
+            );
         }
 
         if (type === 'ice-candidate') {
-            session.call.iceCandidates.push({
-                fromEmail,
-                toEmail,
-                candidate: payload
-            });
-
-            if (session.call.iceCandidates.length > 100) {
-                session.call.iceCandidates = session.call.iceCandidates.slice(-100);
-            }
+            updatedSession = await Session.findByIdAndUpdate(
+                sessionId,
+                {
+                    $push: {
+                        'call.iceCandidates': {
+                            fromEmail,
+                            toEmail,
+                            candidate: payload
+                        }
+                    },
+                    $set: {
+                        'call.endedAt': null
+                    }
+                },
+                { new: true }
+            );
         }
 
         if (type === 'reset') {
-            session.call.offer = null;
-            session.call.answer = null;
-            session.call.iceCandidates = [];
-            session.call.startedAt = new Date();
-            session.call.endedAt = null;
+            updatedSession = await Session.findByIdAndUpdate(
+                sessionId,
+                {
+                    $set: {
+                        'call.offer': null,
+                        'call.answer': null,
+                        'call.iceCandidates': [],
+                        'call.startedAt': new Date(),
+                        'call.endedAt': null
+                    }
+                },
+                { new: true }
+            );
         }
 
-        await session.save();
-        res.json({ message: 'Call signal saved', call: getSanitizedCallState(session, toEmail || fromEmail) });
+        res.json({ message: 'Call signal saved', call: getSanitizedCallState(updatedSession, toEmail || fromEmail) });
     } catch (error) {
         console.error('Session call signal error:', error);
         res.status(500).json({ message: 'Server error saving call state' });

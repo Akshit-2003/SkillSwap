@@ -165,10 +165,12 @@ const Dashboard = () => {
   const attachVideoStreams = () => {
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = localStreamRef.current;
+      localVideoRef.current.play?.().catch(() => {});
     }
 
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStreamRef.current;
+      remoteVideoRef.current.play?.().catch(() => {});
     }
   };
 
@@ -206,11 +208,17 @@ const Dashboard = () => {
   };
 
   const sendCallSignal = async (sessionId, type, fromEmail, toEmail, payload = null) => {
-    await fetch(buildApiUrl('/api/user/session-call'), {
+    const response = await fetch(buildApiUrl('/api/user/session-call'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId, type, fromEmail, toEmail, payload })
     });
+
+    if (!response.ok) {
+      throw new Error(`Failed to sync ${type} signal`);
+    }
+
+    return response.json().catch(() => null);
   };
 
   const ensureLocalStream = async () => {
@@ -225,8 +233,19 @@ const Dashboard = () => {
   };
 
   const createPeerConnection = async (session) => {
-    if (peerConnectionRef.current) {
+    if (
+      peerConnectionRef.current &&
+      !['failed', 'closed', 'disconnected'].includes(peerConnectionRef.current.connectionState)
+    ) {
       return peerConnectionRef.current;
+    }
+
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.ontrack = null;
+      peerConnectionRef.current.onicecandidate = null;
+      peerConnectionRef.current.onconnectionstatechange = null;
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
     }
 
     const { currentEmail, otherEmail } = getSessionParticipants(session);
@@ -241,7 +260,11 @@ const Dashboard = () => {
     });
 
     peerConnection.ontrack = (event) => {
-      event.streams[0]?.getTracks().forEach(track => {
+      const incomingTracks = event.streams?.[0]?.getTracks?.().length
+        ? event.streams[0].getTracks()
+        : [event.track];
+
+      incomingTracks.forEach(track => {
         const alreadyAdded = remoteStream.getTracks().some(existingTrack => existingTrack.id === track.id);
         if (!alreadyAdded) {
           remoteStream.addTrack(track);
@@ -473,7 +496,6 @@ const Dashboard = () => {
         const { isLearner, currentEmail, otherEmail } = getSessionParticipants(activeSession);
 
         if (isLearner) {
-          await sendCallSignal(activeSession.id, 'reset', currentEmail, otherEmail);
           await createAndSendOffer(activeSession);
         } else {
           setCallStatus('Waiting for learner media...');
