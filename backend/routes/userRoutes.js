@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const userController = require('../controllers/userController');
 const User = require('../models/User'); // User model import karna zaroori hai
 const Message = require('../models/Message'); // Unread messages check karne ke liye
@@ -24,6 +25,27 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
+
+const createAttemptId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+const getSanitizedCallState = (session, viewerEmail) => {
+    const rawSession = typeof session?.toObject === 'function' ? session.toObject() : session;
+    const callState = rawSession?.call || {};
+    const iceCandidates = Array.isArray(callState.iceCandidates) ? callState.iceCandidates : [];
+
+    return {
+        attemptId: callState.attemptId || '',
+        offer: callState.offer && (!callState.offer.toEmail || callState.offer.toEmail === viewerEmail) ? callState.offer : null,
+        answer: callState.answer && (!callState.answer.toEmail || callState.answer.toEmail === viewerEmail) ? callState.answer : null,
+        iceCandidates: iceCandidates.filter(candidate => {
+            const matchesViewer = !candidate.toEmail || candidate.toEmail === viewerEmail;
+            const matchesAttempt = !callState.attemptId || !candidate.attemptId || candidate.attemptId === callState.attemptId;
+            return matchesViewer && matchesAttempt;
+        }),
+        startedAt: callState.startedAt || null,
+        endedAt: callState.endedAt || null
+    };
+};
 
 router.get('/profile', userController.getProfile);
 router.post('/updateProfile', userController.updateProfile);
@@ -86,7 +108,20 @@ router.put('/approve-session', async (req, res) => {
 router.put('/join-session', async (req, res) => {
     try {
         const { sessionId } = req.body;
-        const session = await Session.findByIdAndUpdate(sessionId, { status: 'Active' }, { new: true });
+        const attemptId = createAttemptId();
+        const session = await Session.findByIdAndUpdate(
+            sessionId,
+            {
+                status: 'Active',
+                'call.attemptId': attemptId,
+                'call.offer': null,
+                'call.answer': null,
+                'call.iceCandidates': [],
+                'call.startedAt': new Date(),
+                'call.endedAt': null
+            },
+            { new: true }
+        );
         if (!session) return res.status(404).json({ message: 'Session not found' });
         res.json({ message: 'Session is now active', session });
     } catch (error) {
@@ -104,6 +139,13 @@ router.put('/end-session', async (req, res) => {
 
         if (session.status === 'Active') {
             session.status = 'Completed';
+            session.call = {
+                offer: null,
+                answer: null,
+                iceCandidates: [],
+                startedAt: session.call?.startedAt || new Date(),
+                endedAt: new Date()
+            };
             await session.save();
             // Award 1 credit to the mentor instantly
             const teacher = await User.findOne({ email: session.mentorEmail });
@@ -116,6 +158,145 @@ router.put('/end-session', async (req, res) => {
     } catch (error) {
         console.error('End session error:', error);
         res.status(500).json({ message: 'Server error ending session' });
+    }
+});
+
+router.get('/session-call/:sessionId', async (req, res) => {
+    try {
+        const { email } = req.query;
+        if (!mongoose.Types.ObjectId.isValid(req.params.sessionId)) {
+            return res.status(404).json({ message: 'Session not found' });
+        }
+
+        const session = await Session.findById(req.params.sessionId).lean();
+        if (!session) return res.status(404).json({ message: 'Session not found' });
+        res.json(getSanitizedCallState(session, email));
+    } catch (error) {
+        console.error('Session call fetch error:', error);
+        res.status(500).json({ message: 'Server error fetching call state' });
+    }
+});
+
+router.post('/session-call', async (req, res) => {
+    try {
+        const { sessionId, type, fromEmail, toEmail, payload, attemptId } = req.body;
+        const session = await Session.findById(sessionId);
+
+        if (!session) return res.status(404).json({ message: 'Session not found' });
+        const learnerEmail = (session.learnerEmail || '').trim().toLowerCase();
+        const mentorEmail = (session.mentorEmail || '').trim().toLowerCase();
+        const normalizedFromEmail = (fromEmail || '').trim().toLowerCase();
+        const normalizedToEmail = (toEmail || '').trim().toLowerCase();
+        const allowedParticipants = [learnerEmail, mentorEmail].filter(Boolean);
+
+        if (!allowedParticipants.includes(normalizedFromEmail)) {
+            return res.status(400).json({ message: 'Invalid caller for this session' });
+        }
+
+        const resolvedToEmail = normalizedToEmail && normalizedToEmail !== normalizedFromEmail
+            ? normalizedToEmail
+            : (normalizedFromEmail === learnerEmail ? mentorEmail : learnerEmail);
+
+        if (!allowedParticipants.includes(resolvedToEmail) || resolvedToEmail === normalizedFromEmail) {
+            return res.status(400).json({ message: 'Invalid target participant for this session' });
+        }
+
+        if (!['offer', 'answer', 'ice-candidate', 'reset'].includes(type)) {
+            return res.status(400).json({ message: 'Invalid call signal type' });
+        }
+
+        const activeAttemptId = session.call?.attemptId || '';
+
+        if (type !== 'reset' && attemptId && activeAttemptId && attemptId !== activeAttemptId) {
+            return res.status(409).json({ message: 'Stale call attempt' });
+        }
+
+        let updatedSession = null;
+
+        if (type === 'offer') {
+            updatedSession = await Session.findByIdAndUpdate(
+                sessionId,
+                {
+                    $set: {
+                        'call.attemptId': attemptId || activeAttemptId || createAttemptId(),
+                        'call.offer': {
+                            fromEmail: normalizedFromEmail,
+                            toEmail: resolvedToEmail,
+                            attemptId: attemptId || activeAttemptId || '',
+                            payload,
+                            updatedAt: new Date()
+                        },
+                        'call.answer': null,
+                        'call.iceCandidates': [],
+                        'call.startedAt': new Date(),
+                        'call.endedAt': null
+                    }
+                },
+                { new: true }
+            );
+        }
+
+        if (type === 'answer') {
+            updatedSession = await Session.findByIdAndUpdate(
+                sessionId,
+                {
+                    $set: {
+                        'call.answer': {
+                            fromEmail: normalizedFromEmail,
+                            toEmail: resolvedToEmail,
+                            attemptId: attemptId || activeAttemptId || '',
+                            payload,
+                            updatedAt: new Date()
+                        },
+                        'call.endedAt': null
+                    }
+                },
+                { new: true }
+            );
+        }
+
+        if (type === 'ice-candidate') {
+            updatedSession = await Session.findByIdAndUpdate(
+                sessionId,
+                {
+                    $push: {
+                        'call.iceCandidates': {
+                            fromEmail: normalizedFromEmail,
+                            toEmail: resolvedToEmail,
+                            attemptId: attemptId || activeAttemptId || '',
+                            candidate: payload
+                        }
+                    },
+                    $set: {
+                        'call.endedAt': null
+                    }
+                },
+                { new: true }
+            );
+        }
+
+        if (type === 'reset') {
+            const nextAttemptId = createAttemptId();
+            updatedSession = await Session.findByIdAndUpdate(
+                sessionId,
+                {
+                    $set: {
+                        'call.attemptId': nextAttemptId,
+                        'call.offer': null,
+                        'call.answer': null,
+                        'call.iceCandidates': [],
+                        'call.startedAt': new Date(),
+                        'call.endedAt': null
+                    }
+                },
+                { new: true }
+            );
+        }
+
+        res.json({ message: 'Call signal saved', call: getSanitizedCallState(updatedSession, resolvedToEmail || normalizedFromEmail) });
+    } catch (error) {
+        console.error('Session call signal error:', error);
+        res.status(500).json({ message: 'Server error saving call state' });
     }
 });
 

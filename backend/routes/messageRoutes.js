@@ -16,7 +16,7 @@ router.get('/:email', async (req, res) => {
         messages.forEach(msg => {
             const isSentByMe = msg.senderEmail === email;
             const partnerEmail = isSentByMe ? msg.receiverEmail : msg.senderEmail;
-            const partnerName = isSentByMe ? partnerEmail.split('@')[0] : msg.senderName;
+            const partnerName = isSentByMe ? msg.receiverName || partnerEmail.split('@')[0] : msg.senderName;
 
             if (!conversationsMap.has(partnerEmail)) {
                 conversationsMap.set(partnerEmail, {
@@ -27,10 +27,25 @@ router.get('/:email', async (req, res) => {
                     time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     unread: !msg.isRead && !isSentByMe,
                     avatar: partnerName.charAt(0).toUpperCase(),
-                    color: '#646cff'
+                    color: '#646cff',
+                    messages: []
                 });
             }
+
+            conversationsMap.get(partnerEmail).messages.unshift({
+                _id: msg._id,
+                senderEmail: msg.senderEmail,
+                receiverEmail: msg.receiverEmail,
+                message: msg.message,
+                createdAt: msg.createdAt,
+                isRead: msg.isRead
+            });
         });
+
+        await Message.updateMany(
+            { receiverEmail: email, isRead: false },
+            { $set: { isRead: true } }
+        );
 
         res.json(Array.from(conversationsMap.values()));
     } catch (error) {
