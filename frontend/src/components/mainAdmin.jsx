@@ -223,6 +223,7 @@ const SidebarItem = ({ icon, label, to, active, badgeCount = 0 }) => {
 const SidebarSection = ({ title, icon, isOpen, onToggle, active, children }) => (
   <div style={{ margin: '0 12px 8px' }}>
     <button
+      type="button"
       onClick={onToggle}
       style={{
         width: '100%',
