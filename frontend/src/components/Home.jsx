@@ -58,11 +58,11 @@ const Home = () => {
             The ultimate platform to exchange knowledge. Teach what you know, learn what you don't.
             Connect with a global community of learners today.
           </p>
-          <div className="hero-actions" style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <Link to="/register" className="btn-primary" style={{ textDecoration: 'none', padding: '0.8rem 2rem', borderRadius: '8px' }}>
+          <div className="hero-actions">
+            <Link to="/register" className="btn-primary hero-link">
               Start Swapping
             </Link>
-            <Link to="/login" className="btn-outline" style={{ textDecoration: 'none', padding: '0.8rem 2rem', borderRadius: '8px' }}>
+            <Link to="/login" className="btn-outline hero-link">
               Login
             </Link>
           </div>
@@ -70,7 +70,7 @@ const Home = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="stats hidden-element">
+      <section className="stats home-section hidden-element">
         <div className="stats-grid">
           <div className="stat-item">
             <h3 className="stat-number">10k+</h3>
@@ -88,7 +88,7 @@ const Home = () => {
       </section>
 
       {/* Features Section */}
-      <section className="features hidden-element">
+      <section className="features home-section hidden-element">
         <h2>How It Works</h2>
         <div className="features-grid">
           <div className="feature-item">
@@ -110,7 +110,7 @@ const Home = () => {
       </section>
 
       {/* Why Choose Us Section */}
-      <section className="why-us hidden-element" style={{ textAlign: 'center' }}>
+      <section className="why-us home-section hidden-element">
         <h2>Why Choose Skillswap?</h2>
         <div className="why-us-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem', marginTop: '3rem' }}>
           <div className="card" style={{ textAlign: 'left' }}>
@@ -129,7 +129,7 @@ const Home = () => {
       </section>
 
       {/* Popular Skills Section */}
-      <section className="popular-skills hidden-element">
+      <section className="popular-skills home-section hidden-element">
         <h2>Popular Skills to Swap</h2>
         <div className="skills-grid">
           {skills.map((skill, index) => (
@@ -145,7 +145,7 @@ const Home = () => {
       </section>
 
       {/* Testimonials Section */}
-      <section className="testimonials hidden-element" style={{ textAlign: 'center' }}>
+      <section className="testimonials home-section hidden-element">
         <h2>What Our Users Say</h2>
         <div className="testimonial-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
           <div className="card">
@@ -160,9 +160,9 @@ const Home = () => {
       </section>
 
       {/* Learning Experiences Section */}
-      <section className="learning-experiences hidden-element" style={{ textAlign: 'center' }}>
+      <section className="learning-experiences home-section hidden-element">
         <h2>Inspiring Learning Experiences</h2>
-        <p style={{ maxWidth: '600px', margin: '0 auto 3rem', color: '#aaa' }}>
+        <p className="section-intro">
           Real stories from our community members who transformed their lives through skill swapping.
         </p>
         <div className="experiences-grid">
@@ -200,8 +200,8 @@ const Home = () => {
       </section>
 
       {/* Community Values Section */}
-      <section className="values hidden-element" style={{ background: 'rgba(255,255,255,0.02)' }}>
-        <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
+      <section className="values home-section hidden-element">
+        <div className="values-shell">
           <h2>Our Core Values</h2>
           <div className="values-grid">
             <div className="value-item">
@@ -224,7 +224,7 @@ const Home = () => {
       </section>
 
       {/* FAQ Section */}
-      <section className="faq hidden-element">
+      <section className="faq home-section hidden-element">
         <h2>Frequently Asked Questions</h2>
         <div className="faq-list">
           <div className="faq-item">
@@ -243,10 +243,10 @@ const Home = () => {
       </section>
 
       {/* Call to Action Section */}
-      <section className="cta cta-section hidden-element" style={{ textAlign: 'center', background: 'linear-gradient(180deg, transparent, rgba(100, 108, 255, 0.1))', borderRadius: '16px', marginTop: '2rem' }}>
+      <section className="cta cta-section home-section hidden-element">
         <h2>Ready to Start Your Journey?</h2>
-        <p style={{ maxWidth: '600px', margin: '1rem auto 2rem' }}>Join thousands of learners and teachers today. It's free to get started.</p>
-        <Link to="/register" className="btn-primary" style={{ textDecoration: 'none', padding: '1rem 2.5rem', borderRadius: '8px', fontSize: '1.1rem' }}>
+        <p className="cta-copy">Join thousands of learners and teachers today. It's free to get started.</p>
+        <Link to="/register" className="btn-primary cta-link">
           Join Now
         </Link>
       </section>
@@ -273,7 +273,7 @@ const Home = () => {
             <div className="footer-col">
               <h4>Connect With Us</h4>
               <div className="social-links">
-                <a href="#" className="social-icon">🐦</a>
+                <a href="" className="social-icon">🐦</a>
                 <a href="#" className="social-icon">💼</a>
                 <a href="#" className="social-icon">📸</a>
                 <a href="#" className="social-icon">🐙</a>
