@@ -1339,6 +1339,8 @@ footer {
   align-items: center;
   background-color: #141414;
   z-index: 2000;
+  padding: 1.5rem;
+  box-sizing: border-box;
 }
 
 .login-background {
@@ -1429,6 +1431,37 @@ footer {
   text-align: center;
   overflow: hidden;
   animation: cardEntrance 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.auth-shell {
+  position: relative;
+  z-index: 1;
+  width: min(1120px, 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.auth-card {
+  width: min(100%, 480px);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.auth-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(100, 108, 255, 0.28);
+  background: rgba(100, 108, 255, 0.12);
+  color: #dbe2ff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .login-card::before {
@@ -1538,6 +1571,7 @@ footer {
   display: flex;
   gap: 1rem;
   margin-bottom: 1.5rem;
+  justify-content: center;
 }
 
 .btn-social {
@@ -1789,15 +1823,18 @@ footer {
 .nav-group-primary {
   gap: 4rem;
   flex: 1 1 auto;
+  justify-content: center;
 }
 
 .nav-group-home {
   gap: 9rem;
+  justify-content: center;
 }
 
 .nav-group-secondary {
   gap: 1.5rem;
   justify-content: flex-end;
+  align-items: center;
 }
 
 .hero-actions {
@@ -1975,6 +2012,7 @@ video {
   .nav-group-primary,
   .nav-group-home {
     gap: 1rem 1.5rem;
+    justify-content: space-between;
   }
 
   .nav-group-secondary {
@@ -2079,6 +2117,10 @@ video {
     width: min(100%, 500px);
   }
 
+  .auth-shell {
+    width: 100%;
+  }
+
   .pricing-card-featured {
     transform: none !important;
   }
@@ -2121,10 +2163,12 @@ video {
     order: 1;
     width: calc(100% - 56px);
     gap: 0.75rem;
+    justify-content: center;
   }
 
   .nav-group-secondary {
     order: 3;
+    justify-content: center;
   }
 
   .nav-links {
@@ -2314,6 +2358,10 @@ video {
     flex-direction: column;
   }
 
+  .auth-badge {
+    font-size: 0.75rem;
+  }
+
   .career-card,
   .message-row,
   .message-row-header,
@@ -2470,6 +2518,11 @@ video {
 
   .login-card {
     padding: 1.25rem;
+  }
+
+  .auth-shell {
+    width: 100%;
+    align-items: stretch;
   }
 
   .btn-outline,
