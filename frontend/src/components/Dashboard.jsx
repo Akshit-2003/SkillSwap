@@ -299,7 +299,12 @@ const Dashboard = () => {
     }
 
     const peerConnection = await ensurePeerConnection();
-    const attemptId = currentAttemptIdRef.current || createClientAttemptId();
+    const resetResponse = await postCallSignal({
+      sessionId: activeSession.id,
+      type: 'reset',
+      toEmail: peerEmail
+    });
+    const attemptId = resetResponse?.call?.attemptId || currentAttemptIdRef.current || createClientAttemptId();
     currentAttemptIdRef.current = attemptId;
     processedIceCandidatesRef.current.clear();
     appliedOfferRef.current = '';
