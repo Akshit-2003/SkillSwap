@@ -134,6 +134,13 @@ const Dashboard = () => {
     if (videoRef.current) {
       videoRef.current.srcObject = stream || null;
       videoRef.current.muted = muted;
+      if (stream) {
+        const tryPlay = () => {
+          videoRef.current?.play?.().catch(() => {});
+        };
+        videoRef.current.onloadedmetadata = tryPlay;
+        tryPlay();
+      }
     }
   };
 
@@ -230,13 +237,30 @@ const Dashboard = () => {
       if (!remoteStreamRef.current) {
         remoteStreamRef.current = new MediaStream();
       }
-      event.streams[0].getTracks().forEach(track => {
+
+      const attachRemoteTrack = (track) => {
+        if (!track) return;
         if (!remoteStreamRef.current.getTracks().some(existingTrack => existingTrack.id === track.id)) {
           remoteStreamRef.current.addTrack(track);
         }
-      });
-      attachVideoStream(remoteVideoRef, remoteStreamRef.current);
-      setCallStatus('Connected');
+        attachVideoStream(remoteVideoRef, remoteStreamRef.current);
+        setCallStatus('Connected');
+      };
+
+      if (event.track) {
+        attachRemoteTrack(event.track);
+        event.track.onunmute = () => {
+          attachRemoteTrack(event.track);
+        };
+      }
+
+      if (Array.isArray(event.streams) && event.streams.length > 0) {
+        event.streams.forEach(stream => {
+          stream.getTracks().forEach(track => {
+            attachRemoteTrack(track);
+          });
+        });
+      }
     };
 
     peerConnection.onicecandidate = async (event) => {
