@@ -383,10 +383,17 @@ const Dashboard = () => {
       const answerKey = `${callState.answer.attemptId}:${callState.answer.updatedAt}`;
       if (appliedAnswerRef.current !== answerKey) {
         appliedAnswerRef.current = answerKey;
-        if (!peerConnection.currentRemoteDescription) {
+        if (
+          !peerConnection.currentRemoteDescription &&
+          peerConnection.signalingState === 'have-local-offer'
+        ) {
           await peerConnection.setRemoteDescription(new RTCSessionDescription(callState.answer.payload));
+        } else {
+          setCallStatus('Connected');
         }
-        setCallStatus('Connecting...');
+        if (peerConnection.signalingState !== 'stable') {
+          setCallStatus('Connecting...');
+        }
       }
     }
 
