@@ -99,6 +99,7 @@ const Dashboard = () => {
   const [mediaError, setMediaError] = useState('');
   const [isMicEnabled, setIsMicEnabled] = useState(true);
   const [isCameraEnabled, setIsCameraEnabled] = useState(true);
+  const [hasRemoteMedia, setHasRemoteMedia] = useState(false);
   const [dashData, setDashData] = useState({
     upcomingSessions: [],
     topMentors: [],
@@ -180,6 +181,7 @@ const Dashboard = () => {
     setMediaError('');
     setIsMicEnabled(true);
     setIsCameraEnabled(true);
+    setHasRemoteMedia(false);
     if (!keepModalOpen) {
       setShowVideoModal(false);
       setActiveSession(null);
@@ -244,6 +246,7 @@ const Dashboard = () => {
           remoteStreamRef.current.addTrack(track);
         }
         attachVideoStream(remoteVideoRef, remoteStreamRef.current);
+        setHasRemoteMedia(true);
         setCallStatus('Connected');
       };
 
@@ -334,7 +337,10 @@ const Dashboard = () => {
     appliedOfferRef.current = '';
     appliedAnswerRef.current = '';
 
-    const offer = await peerConnection.createOffer();
+    const offer = await peerConnection.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true
+    });
     await peerConnection.setLocalDescription(offer);
     await postCallSignal({
       sessionId: activeSession.id,
@@ -1248,7 +1254,7 @@ const Dashboard = () => {
             <div style={{ flex: 1, display: 'flex', gap: '20px', overflow: 'hidden' }}>
               <div style={{ flex: 2, background: '#000', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px solid #374151', position: 'relative', overflow: 'hidden' }}>
                 <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }} />
-                {!remoteStreamRef.current && (
+                {!hasRemoteMedia && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#d1d5db', gap: '12px', background: 'rgba(0,0,0,0.35)' }}>
                     <span style={{ fontSize: '4rem' }}>Video</span>
                     <span style={{ fontSize: '1rem', color: '#10b981' }}>Waiting for the other participant...</span>
