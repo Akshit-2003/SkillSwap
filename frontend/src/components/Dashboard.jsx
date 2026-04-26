@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { buildApiUrl } from '../api';
 import { apiRoutes } from '../routes/apiRoutes';
@@ -63,6 +63,15 @@ const StatCounter = ({ end, duration = 2000, suffix = "" }) => {
   return <span>{count}{suffix}</span>;
 };
 
+const RTC_CONFIGURATION = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]
+};
+
+const createClientAttemptId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
 const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [viewMode, setViewMode] = useState('learning');
@@ -82,9 +91,14 @@ const Dashboard = () => {
   });
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
+  const [activeSessionRole, setActiveSessionRole] = useState('learner');
   const [isVerifying, setIsVerifying] = useState(false);
   const [classChat, setClassChat] = useState([]);
   const [chatInput, setChatInput] = useState('');
+  const [callStatus, setCallStatus] = useState('Waiting to connect...');
+  const [mediaError, setMediaError] = useState('');
+  const [isMicEnabled, setIsMicEnabled] = useState(true);
+  const [isCameraEnabled, setIsCameraEnabled] = useState(true);
   const [dashData, setDashData] = useState({
     upcomingSessions: [],
     topMentors: [],
@@ -98,6 +112,262 @@ const Dashboard = () => {
   });
   const navigate = useNavigate();
   const location = useLocation();
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const peerConnectionRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
+  const signalingIntervalRef = useRef(null);
+  const processedIceCandidatesRef = useRef(new Set());
+  const appliedOfferRef = useRef('');
+  const appliedAnswerRef = useRef('');
+  const currentAttemptIdRef = useRef('');
+
+  const getPeerEmail = () => {
+    if (!activeSession || !user) return '';
+    return activeSessionRole === 'learner'
+      ? (activeSession.mentorEmail || '')
+      : (activeSession.studentEmail || '');
+  };
+
+  const attachVideoStream = (videoRef, stream, muted = false) => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream || null;
+      videoRef.current.muted = muted;
+    }
+  };
+
+  const stopMediaStream = (stream) => {
+    if (!stream) return;
+    stream.getTracks().forEach(track => track.stop());
+  };
+
+  const cleanupPeerConnection = () => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.onicecandidate = null;
+      peerConnectionRef.current.ontrack = null;
+      peerConnectionRef.current.onconnectionstatechange = null;
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    remoteStreamRef.current = null;
+    attachVideoStream(remoteVideoRef, null);
+    processedIceCandidatesRef.current.clear();
+    appliedOfferRef.current = '';
+    appliedAnswerRef.current = '';
+  };
+
+  const cleanupVideoSession = ({ keepModalOpen = false } = {}) => {
+    if (signalingIntervalRef.current) {
+      clearInterval(signalingIntervalRef.current);
+      signalingIntervalRef.current = null;
+    }
+    cleanupPeerConnection();
+    stopMediaStream(localStreamRef.current);
+    localStreamRef.current = null;
+    attachVideoStream(localVideoRef, null, true);
+    currentAttemptIdRef.current = '';
+    setClassChat([]);
+    setChatInput('');
+    setCallStatus('Waiting to connect...');
+    setMediaError('');
+    setIsMicEnabled(true);
+    setIsCameraEnabled(true);
+    if (!keepModalOpen) {
+      setShowVideoModal(false);
+      setActiveSession(null);
+    }
+  };
+
+  const postCallSignal = async ({ sessionId, type, payload = null, toEmail = '', attemptId = '' }) => {
+    const response = await fetch(buildApiUrl('/api/user/session-call'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        type,
+        fromEmail: user.email,
+        toEmail,
+        payload,
+        attemptId
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to send ${type} signal.`);
+    }
+
+    return response.json();
+  };
+
+  const fetchCallState = async (sessionId) => {
+    const response = await fetch(buildApiUrl(`/api/user/session-call/${sessionId}?email=${encodeURIComponent(user.email)}`));
+    if (!response.ok) {
+      throw new Error('Failed to fetch call state.');
+    }
+    return response.json();
+  };
+
+  const ensurePeerConnection = async () => {
+    if (peerConnectionRef.current) return peerConnectionRef.current;
+
+    const peerConnection = new RTCPeerConnection(RTC_CONFIGURATION);
+
+    if (!remoteStreamRef.current) {
+      remoteStreamRef.current = new MediaStream();
+      attachVideoStream(remoteVideoRef, remoteStreamRef.current);
+    }
+
+    peerConnection.ontrack = (event) => {
+      if (!remoteStreamRef.current) {
+        remoteStreamRef.current = new MediaStream();
+      }
+      event.streams[0].getTracks().forEach(track => {
+        if (!remoteStreamRef.current.getTracks().some(existingTrack => existingTrack.id === track.id)) {
+          remoteStreamRef.current.addTrack(track);
+        }
+      });
+      attachVideoStream(remoteVideoRef, remoteStreamRef.current);
+      setCallStatus('Connected');
+    };
+
+    peerConnection.onicecandidate = async (event) => {
+      if (!event.candidate || !activeSession) return;
+      const peerEmail = getPeerEmail();
+      if (!peerEmail) return;
+
+      try {
+        await postCallSignal({
+          sessionId: activeSession.id,
+          type: 'ice-candidate',
+          payload: event.candidate.toJSON(),
+          toEmail: peerEmail,
+          attemptId: currentAttemptIdRef.current
+        });
+      } catch (error) {
+        console.error('ICE candidate send error:', error);
+      }
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+      const state = peerConnection.connectionState;
+      if (state === 'connected') setCallStatus('Connected');
+      if (state === 'connecting') setCallStatus('Connecting...');
+      if (state === 'disconnected') setCallStatus('Connection lost. Trying to recover...');
+      if (state === 'failed') setCallStatus('Connection failed. Rejoin the class to retry.');
+      if (state === 'closed') setCallStatus('Call ended');
+    };
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStreamRef.current);
+      });
+    }
+
+    peerConnectionRef.current = peerConnection;
+    return peerConnection;
+  };
+
+  const setupLocalMedia = async () => {
+    if (localStreamRef.current) return localStreamRef.current;
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
+
+    localStreamRef.current = stream;
+    setIsMicEnabled(true);
+    setIsCameraEnabled(true);
+    attachVideoStream(localVideoRef, stream, true);
+    return stream;
+  };
+
+  const createAndSendOffer = async () => {
+    const peerEmail = getPeerEmail();
+    if (!activeSession?.id || !peerEmail) return;
+
+    const peerConnection = await ensurePeerConnection();
+    const attemptId = createClientAttemptId();
+    currentAttemptIdRef.current = attemptId;
+    processedIceCandidatesRef.current.clear();
+    appliedOfferRef.current = '';
+    appliedAnswerRef.current = '';
+
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    await postCallSignal({
+      sessionId: activeSession.id,
+      type: 'offer',
+      payload: peerConnection.localDescription,
+      toEmail: peerEmail,
+      attemptId
+    });
+    setCallStatus('Waiting for the other person to join...');
+  };
+
+  const syncCallState = async (callState) => {
+    let peerConnection = await ensurePeerConnection();
+    const nextAttemptId = callState.attemptId || currentAttemptIdRef.current || '';
+
+    if (nextAttemptId && currentAttemptIdRef.current && nextAttemptId !== currentAttemptIdRef.current) {
+      cleanupPeerConnection();
+      currentAttemptIdRef.current = nextAttemptId;
+      peerConnection = await ensurePeerConnection();
+    } else if (nextAttemptId) {
+      currentAttemptIdRef.current = nextAttemptId;
+    }
+
+    if (callState.offer && activeSessionRole === 'teacher') {
+      const offerKey = `${callState.offer.attemptId}:${callState.offer.updatedAt}`;
+      if (appliedOfferRef.current !== offerKey) {
+        appliedOfferRef.current = offerKey;
+        currentAttemptIdRef.current = callState.offer.attemptId || currentAttemptIdRef.current;
+        if (!peerConnection.currentRemoteDescription) {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(callState.offer.payload));
+        }
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        await postCallSignal({
+          sessionId: activeSession.id,
+          type: 'answer',
+          payload: peerConnection.localDescription,
+          toEmail: callState.offer.fromEmail,
+          attemptId: currentAttemptIdRef.current
+        });
+        setCallStatus('Connecting...');
+      }
+    }
+
+    if (callState.answer && activeSessionRole === 'learner') {
+      const answerKey = `${callState.answer.attemptId}:${callState.answer.updatedAt}`;
+      if (appliedAnswerRef.current !== answerKey) {
+        appliedAnswerRef.current = answerKey;
+        if (!peerConnection.currentRemoteDescription) {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(callState.answer.payload));
+        }
+        setCallStatus('Connecting...');
+      }
+    }
+
+    if (Array.isArray(callState.iceCandidates)) {
+      for (const candidateEntry of callState.iceCandidates) {
+        const candidateKey = JSON.stringify(candidateEntry);
+        if (processedIceCandidatesRef.current.has(candidateKey) || !candidateEntry?.candidate) continue;
+
+        try {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidateEntry.candidate));
+          processedIceCandidatesRef.current.add(candidateKey);
+        } catch (error) {
+          console.error('ICE candidate apply error:', error);
+        }
+      }
+    }
+  };
+
+  const closeVideoModal = () => {
+    cleanupVideoSession();
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -158,6 +428,12 @@ const Dashboard = () => {
       }
     }
   }, [dashData, showVideoModal, activeSession, viewMode]);
+
+  useEffect(() => {
+    return () => {
+      cleanupVideoSession({ keepModalOpen: true });
+    };
+  }, []);
 
   const handleOpenModal = (type) => {
     setModalType(type);
@@ -288,10 +564,72 @@ const Dashboard = () => {
         console.error(err);
       }
     }
-    setActiveSession(session);
+    setActiveSessionRole(isLearner ? 'learner' : 'teacher');
+    setActiveSession({
+      ...session,
+      status: isLearner ? 'Active' : session.status
+    });
     setChatInput('');
+    setCallStatus('Preparing your camera and microphone...');
+    setMediaError('');
     setShowVideoModal(true);
   };
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const startVideoCall = async () => {
+      if (!showVideoModal || !activeSession || !user) return;
+
+      try {
+        setMediaError('');
+        setCallStatus('Requesting camera and microphone access...');
+        await setupLocalMedia();
+        await ensurePeerConnection();
+
+        const initialState = await fetchCallState(activeSession.id);
+        if (isCancelled) return;
+
+        if (initialState.attemptId) {
+          currentAttemptIdRef.current = initialState.attemptId;
+        }
+
+        await syncCallState(initialState);
+
+        if (activeSessionRole === 'learner' && !initialState.offer) {
+          await createAndSendOffer();
+        } else if (activeSessionRole === 'teacher' && !initialState.offer) {
+          setCallStatus('Waiting for learner to start the call...');
+        }
+
+        if (signalingIntervalRef.current) {
+          clearInterval(signalingIntervalRef.current);
+        }
+
+        signalingIntervalRef.current = setInterval(async () => {
+          try {
+            const latestState = await fetchCallState(activeSession.id);
+            if (!isCancelled) {
+              await syncCallState(latestState);
+            }
+          } catch (error) {
+            console.error('Call sync error:', error);
+          }
+        }, 1500);
+      } catch (error) {
+        console.error('Video start error:', error);
+        setMediaError(error.message || 'Camera or microphone access failed.');
+        setCallStatus('Unable to start video call');
+      }
+    };
+
+    startVideoCall();
+
+    return () => {
+      isCancelled = true;
+      cleanupVideoSession({ keepModalOpen: true });
+    };
+  }, [showVideoModal, activeSession, activeSessionRole, user]);
 
   // Real-time Live Chat Sync (every 2 seconds while modal is open)
   useEffect(() => {
@@ -339,6 +677,7 @@ const Dashboard = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: activeSession.id })
       });
+      cleanupVideoSession({ keepModalOpen: true });
       setShowVideoModal(false);
       window.dispatchEvent(new Event('user_updated')); // fetch updated credits
 
@@ -353,6 +692,20 @@ const Dashboard = () => {
     } catch (err) {
       console.error('End session error:', err);
     }
+  };
+
+  const toggleTrack = (kind) => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+
+    const tracks = kind === 'audio' ? stream.getAudioTracks() : stream.getVideoTracks();
+    const enabled = tracks.some(track => track.enabled);
+    tracks.forEach(track => {
+      track.enabled = !enabled;
+    });
+
+    if (kind === 'audio') setIsMicEnabled(!enabled);
+    if (kind === 'video') setIsCameraEnabled(!enabled);
   };
 
   const submitRating = async () => {
@@ -814,8 +1167,88 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Live Video Interaction Modal */}
       {showVideoModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease-out' }}>
+          <div style={{ background: '#1f2937', padding: '30px', borderRadius: '16px', width: '95vw', height: '95vh', border: '1px solid #374151', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h3 style={{ margin: 0, color: '#fff', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>Live Class: {activeSession?.title}</h3>
+              <button onClick={closeVideoModal} style={{ background: 'transparent', color: '#ef4444', border: 'none', fontSize: '1.5rem', cursor: 'pointer', padding: '0 10px' }}>x</button>
+            </div>
+            <div style={{ margin: '0 0 20px 0', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ background: 'rgba(100,108,255,0.15)', border: '1px solid rgba(100,108,255,0.3)', color: '#93c5fd', padding: '6px 12px', borderRadius: '8px', fontSize: '0.95rem' }}>Host: <strong style={{ color: '#fff' }}>{activeSession?.mentorName}</strong></span>
+              <span style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', color: '#6ee7b7', padding: '6px 12px', borderRadius: '8px', fontSize: '0.95rem' }}>Learner: <strong style={{ color: '#fff' }}>{activeSession?.studentName || user.name}</strong></span>
+              <span style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb', padding: '6px 12px', borderRadius: '8px', fontSize: '0.95rem' }}>{callStatus}</span>
+              <span style={{ color: '#aaa', fontSize: '0.9rem', marginLeft: 'auto' }}>Time is unlimited</span>
+            </div>
+            {mediaError && (
+              <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#fecaca' }}>
+                {mediaError}
+              </div>
+            )}
+
+            <div style={{ flex: 1, display: 'flex', gap: '20px', overflow: 'hidden' }}>
+              <div style={{ flex: 2, background: '#000', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px solid #374151', position: 'relative', overflow: 'hidden' }}>
+                <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }} />
+                {!remoteStreamRef.current && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#d1d5db', gap: '12px', background: 'rgba(0,0,0,0.35)' }}>
+                    <span style={{ fontSize: '4rem' }}>Video</span>
+                    <span style={{ fontSize: '1rem', color: '#10b981' }}>Waiting for the other participant...</span>
+                  </div>
+                )}
+                <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: 'rgba(0,0,0,0.8)', padding: '8px 15px', borderRadius: '8px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #374151' }}>
+                  {viewMode === 'learning' ? <span>Host: <strong>{activeSession?.mentorName}</strong></span> : <span>Learner: <strong>{activeSession?.studentName || 'Student'}</strong></span>}
+                </div>
+              </div>
+
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ flex: 1, background: '#111827', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #374151', position: 'relative', overflow: 'hidden' }}>
+                  <video ref={localVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }} />
+                  {!localStreamRef.current && <span style={{ fontSize: '2rem', position: 'absolute' }}>You</span>}
+                  <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(0,0,0,0.8)', padding: '5px 10px', borderRadius: '6px', color: '#fff', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #374151' }}>
+                    {viewMode === 'learning' ? <span>Learner (You)</span> : <span>Host (You)</span>}
+                  </div>
+                </div>
+                <div style={{ flex: 2, background: '#111827', borderRadius: '12px', border: '1px solid #374151', padding: '15px', display: 'flex', flexDirection: 'column' }}>
+                  <h4 style={{ marginTop: 0, color: '#e5e7eb', borderBottom: '1px solid #374151', paddingBottom: '10px' }}>Class Chat</h4>
+                  <div style={{ flex: 1, overflowY: 'auto', marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '5px' }}>
+                    <div style={{ alignSelf: 'center', color: '#10b981', padding: '4px 0', fontSize: '0.85rem', fontStyle: 'italic', textAlign: 'center' }}>Welcome to the live class! You can chat here.</div>
+                    {classChat.map((msg, i) => (
+                      <div key={i} style={{
+                        alignSelf: msg.sender === user.name ? 'flex-end' : 'flex-start',
+                        background: msg.sender === user.name ? '#646cff' : '#374151',
+                        color: '#fff',
+                        padding: '8px 12px',
+                        borderRadius: '12px',
+                        fontSize: '0.9rem',
+                        maxWidth: '85%'
+                      }}>
+                        {msg.sender !== user.name && <strong style={{ display: 'block', fontSize: '0.75rem', marginBottom: '2px', color: '#aaa' }}>{msg.sender}</strong>}
+                        {msg.text}
+                      </div>
+                    ))}
+                  </div>
+                  <input type="text" placeholder="Type a message and press Enter..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={handleSendChat} style={{ width: '100%', boxSizing: 'border-box', padding: '12px', borderRadius: '8px', border: '1px solid #374151', background: '#1f2937', color: '#fff', outline: 'none' }} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #374151' }}>
+              <button onClick={() => toggleTrack('audio')} style={{ background: isMicEnabled ? '#374151' : '#7f1d1d', color: '#fff', border: 'none', padding: '15px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', marginRight: '12px' }}>
+                {isMicEnabled ? 'Mute Mic' : 'Unmute Mic'}
+              </button>
+              <button onClick={() => toggleTrack('video')} style={{ background: isCameraEnabled ? '#374151' : '#7f1d1d', color: '#fff', border: 'none', padding: '15px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', marginRight: '12px' }}>
+                {isCameraEnabled ? 'Turn Camera Off' : 'Turn Camera On'}
+              </button>
+              <button onClick={handleEndVideo} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '15px 30px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                End Class
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Video Interaction Modal */}
+      {false && showVideoModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease-out' }}>
           <div style={{ background: '#1f2937', padding: '30px', borderRadius: '16px', width: '95vw', height: '95vh', border: '1px solid #374151', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
