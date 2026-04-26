@@ -382,13 +382,23 @@ const Dashboard = () => {
     if (callState.answer && activeSessionRole === 'learner') {
       const answerKey = `${callState.answer.attemptId}:${callState.answer.updatedAt}`;
       if (appliedAnswerRef.current !== answerKey) {
-        appliedAnswerRef.current = answerKey;
         if (
           !peerConnection.currentRemoteDescription &&
           peerConnection.signalingState === 'have-local-offer'
         ) {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(callState.answer.payload));
+          try {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(callState.answer.payload));
+            appliedAnswerRef.current = answerKey;
+          } catch (error) {
+            if (error?.message?.includes('Called in wrong state: stable')) {
+              appliedAnswerRef.current = answerKey;
+              setCallStatus('Connected');
+            } else {
+              throw error;
+            }
+          }
         } else {
+          appliedAnswerRef.current = answerKey;
           setCallStatus('Connected');
         }
         if (peerConnection.signalingState !== 'stable') {
