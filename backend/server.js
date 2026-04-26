@@ -16,6 +16,7 @@ const messageRoutes = require('./routes/messageRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI;
+const frontendDistDir = path.resolve(__dirname, '../frontend/dist');
 
 // Ensure uploads directory exists securely
 const uploadDir = path.join(__dirname, 'uploads');
@@ -43,11 +44,13 @@ app.use('/api/verifier', verifierRoutes);
 app.use('/api/messages', messageRoutes);
 
 // ✅ ✅ VITE FRONTEND SERVE (IMPORTANT FIX)
-app.use(express.static(path.join(__dirname, 'frontend/dist')));
+if (fs.existsSync(frontendDistDir)) {
+  app.use(express.static(frontendDistDir));
 
-app.use((req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
-});
+  app.use((req, res) => {
+    res.sendFile(path.join(frontendDistDir, 'index.html'));
+  });
+}
 
 // Connect DB & Start Server
 connectDatabase(MONGODB_URI)
