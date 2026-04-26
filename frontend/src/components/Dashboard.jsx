@@ -194,7 +194,15 @@ const Dashboard = () => {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to send ${type} signal.`);
+      let errorMessage = `Failed to send ${type} signal.`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (_error) {
+        const errorText = await response.text().catch(() => '');
+        if (errorText) errorMessage = errorText;
+      }
+      throw new Error(errorMessage);
     }
 
     return response.json();
@@ -285,7 +293,10 @@ const Dashboard = () => {
 
   const createAndSendOffer = async () => {
     const peerEmail = getPeerEmail();
-    if (!activeSession?.id || !peerEmail) return;
+    if (!activeSession?.id) return;
+    if (!peerEmail) {
+      throw new Error('Other participant email is missing for this session.');
+    }
 
     const peerConnection = await ensurePeerConnection();
     const attemptId = createClientAttemptId();
@@ -380,8 +391,10 @@ const Dashboard = () => {
             if (data.rating === undefined) data.rating = 4.8;
             if (data.ratingCount === undefined) data.ratingCount = 12;
             setUser(data);
-            storeUser(data);
-            window.dispatchEvent(new Event('user_updated')); // SYNC NAVBAR REALTIME
+            if (!showVideoModal) {
+              storeUser(data);
+              window.dispatchEvent(new Event('user_updated')); // SYNC NAVBAR REALTIME
+            }
           } else {
             setUser(parsedUser);
           }
@@ -405,7 +418,7 @@ const Dashboard = () => {
     // Real-time Database Sync (Updates every 5 seconds)
     const intervalId = setInterval(fetchUser, 5000);
     return () => clearInterval(intervalId);
-  }, [navigate]);
+  }, [navigate, showVideoModal]);
 
   // Real-time synchronization for closing the video modal if the other person ends it
   useEffect(() => {
@@ -629,7 +642,7 @@ const Dashboard = () => {
       isCancelled = true;
       cleanupVideoSession({ keepModalOpen: true });
     };
-  }, [showVideoModal, activeSession, activeSessionRole, user]);
+  }, [showVideoModal, activeSession, activeSessionRole, user?.email]);
 
   // Real-time Live Chat Sync (every 2 seconds while modal is open)
   useEffect(() => {
