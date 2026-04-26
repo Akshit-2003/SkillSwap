@@ -299,7 +299,7 @@ const Dashboard = () => {
     }
 
     const peerConnection = await ensurePeerConnection();
-    const attemptId = createClientAttemptId();
+    const attemptId = currentAttemptIdRef.current || createClientAttemptId();
     currentAttemptIdRef.current = attemptId;
     processedIceCandidatesRef.current.clear();
     appliedOfferRef.current = '';
