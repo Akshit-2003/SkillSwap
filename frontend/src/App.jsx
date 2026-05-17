@@ -339,9 +339,41 @@ function Navbar() {
   );
 }
 
+function AppSplash() {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsVisible(false), 2300);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="app-splash" role="status" aria-label="Loading SkillSwap">
+      <div className="app-splash-orbit" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div className="app-splash-logo" aria-hidden="true">
+        <img src="/vite.svg" alt="" />
+      </div>
+      <div className="app-splash-wordmark">
+        <strong>SkillSwap</strong>
+        <small>Connecting learners</small>
+      </div>
+      <div className="app-splash-loader" aria-hidden="true">
+        <span></span>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   return (
     <Router>
+      <AppSplash />
       <Navbar />
 
       <Routes>
