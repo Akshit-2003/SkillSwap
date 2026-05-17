@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import ChatbotAssistant from './ChatbotAssistant';
 
 const Home = () => {
   const videoRef = useRef(null);
@@ -285,6 +286,8 @@ const Home = () => {
           </div>
         </div>
       </footer>
+
+      <ChatbotAssistant />
 
     </div>
   );
